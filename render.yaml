@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: engagehubcoin
+    env: node
+    plan: free
+    rootDir: .
+    buildCommand: npm install
+    startCommand: npm start
+    autoDeploy: true
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: DB_FILE
+        value: /var/data/data.sqlite
