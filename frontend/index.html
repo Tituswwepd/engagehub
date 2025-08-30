@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>EngageHub</title>
+  <link rel="icon" href="/assets/icon.png" type="image/png"/>
+  <style>
+    body{margin:0;background:linear-gradient(135deg,#0f172a,#1e1b4b 40%,#4f46e5);color:#e5e7eb;font-family:Inter,system-ui}
+    header{position:sticky;top:0;background:rgba(17,24,39,.75);backdrop-filter:blur(8px);padding:14px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #1f2937}
+    header img{width:28px;height:28px;border-radius:50%}
+    main{max-width:1100px;margin:0 auto;padding:16px}
+    .card{background:#0b1220;border:1px solid #1f2937;border-radius:14px;padding:16px;margin:12px 0}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+    input,button{padding:10px;border-radius:10px;border:1px solid #1f2937;background:#0b1220;color:#e5e7eb}
+    button{background:#FFD700;color:#111827;border:none;font-weight:900}
+    .big{font-size:28px;font-weight:900;color:#FFD700;text-shadow:0 0 12px rgba(255,215,0,.25)}
+    .muted{color:#9ca3af;font-size:12px}
+  </style>
+</head>
+<body>
+  <header><img src="/assets/icon.png"/><b>EngageHub</b></header>
+  <main>
+    <div class="grid">
+      <div class="card">
+        <h3>Available to withdraw</h3>
+        <div id="avail" class="big">—</div>
+        <div><input id="uid" placeholder="your user id"/> <button onclick="loadWallet()">Refresh</button></div>
+        <div class="muted">We’ll show you exactly what you can withdraw now.</div>
+      </div>
+      <div class="card">
+        <h3>Request Withdrawal</h3>
+        <div><input id="w_email" placeholder="PayPal email"/></div>
+        <div><input id="w_amount" placeholder="Amount (USD)"/></div>
+        <button onclick="reqWithdraw()">Send request</button>
+        <div id="wout" class="muted"></div>
+      </div>
+    </div>
+  </main>
+<script>
+async function loadWallet(){
+  const uid=document.getElementById('uid').value||'guest';
+  const r=await fetch('/api/wallet/'+encodeURIComponent(uid)); const j=await r.json();
+  const f=(n)=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
+  document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
+}
+async function reqWithdraw(){
+  const user_id=document.getElementById('uid').value||'guest';
+  const email=document.getElementById('w_email').value;
+  const amount_usd=Number(document.getElementById('w_amount').value||0);
+  const r=await fetch('/api/withdraw/request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id,email,amount_usd})});
+  const j=await r.json(); document.getElementById('wout').textContent=j.ok?'Request sent ✅':'Error: '+(j.error||'failed');
+}
+</script>
+</body></html>
