@@ -415,7 +415,7 @@ app.post("/api/admin/payouts/paypal", async (req, res) => {
     const token = await paypalToken();
     const base = process.env.PAYPAL_API_BASE || "https://api-m.paypal.com";
     const batch = {
-      sender_batch_header: { email_subject: "Your EngageHub Payout" },
+      sender_batch_header: { email_subject: "Your EngageHubCoin Payout" },
       items: [
         {
           recipient_type: "EMAIL",
@@ -463,7 +463,7 @@ app.get("/webhooks/whatsapp", (req, res) => {
 
 // RECEIVE (incoming messages)
 app.post("/webhooks/whatsapp", async (_req, res) => {
-  // Parse incoming messages if you need. For now, just 200 OK.
+  // Parse incoming messages if needed. For now, just 200 OK.
   res.sendStatus(200);
 });
 
@@ -555,7 +555,7 @@ app.get("/auth/facebook/callback", async (req, res) => {
     });
 
     const fb_user_id = meResp.data.id;
-    const name = meResp.data.name || "Facebook User";
+    the name = meResp.data.name || "Facebook User";
     const user_id = "facebook:" + fb_user_id;
 
     await ensureUser(user_id, name);
@@ -629,5 +629,5 @@ app.get("/", (_req, res) =>
 
 const PORT = Number(process.env.PORT || 8080);
 initDb().then(() =>
-  app.listen(PORT, () => console.log("EngageHub running on http://localhost:" + PORT))
+  app.listen(PORT, () => console.log("EngageHubCoin running on http://localhost:" + PORT))
 );
