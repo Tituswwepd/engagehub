@@ -12,7 +12,7 @@
     .card{background:#0b1220;border:1px solid #1f2937;border-radius:14px;padding:16px;margin:12px 0}
     .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
     input,button{padding:10px;border-radius:10px;border:1px solid #1f2937;background:#0b1220;color:#e5e7eb}
-    button{background:#FFD700;color:#111827;border:none;font-weight:900}
+    button{background:#FFD700;color:#111827;border:none;font-weight:900;cursor:pointer}
     .big{font-size:28px;font-weight:900;color:#FFD700;text-shadow:0 0 12px rgba(255,215,0,.25)}
     .muted{color:#9ca3af;font-size:12px}
   </style>
@@ -21,12 +21,18 @@
   <header><img src="/assets/icon.png"/><b>EngageHub</b></header>
   <main>
     <div class="grid">
+      <!-- Wallet Card -->
       <div class="card">
         <h3>Available to withdraw</h3>
         <div id="avail" class="big">—</div>
-        <div><input id="uid" placeholder="your user id"/> <button onclick="loadWallet()">Refresh</button></div>
+        <div>
+          <input id="uid" placeholder="your user id"/>
+          <button onclick="loadWallet()">Refresh</button>
+        </div>
         <div class="muted">We’ll show you exactly what you can withdraw now.</div>
       </div>
+
+      <!-- Withdrawal Request Card -->
       <div class="card">
         <h3>Request Withdrawal</h3>
         <div><input id="w_email" placeholder="PayPal email"/></div>
@@ -34,21 +40,83 @@
         <button onclick="reqWithdraw()">Send request</button>
         <div id="wout" class="muted"></div>
       </div>
+
+      <!-- Deposit Card -->
+      <div class="card">
+        <h3>Deposit (PayPal / Card)</h3>
+        <div id="paypal-buttons"></div>
+        <div class="muted">Top up with PayPal balance or credit/debit card.</div>
+      </div>
     </div>
   </main>
+
 <script>
 async function loadWallet(){
   const uid=document.getElementById('uid').value||'guest';
-  const r=await fetch('/api/wallet/'+encodeURIComponent(uid)); const j=await r.json();
+  const r=await fetch('/api/wallet/'+encodeURIComponent(uid));
+  const j=await r.json();
   const f=(n)=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
   document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
 }
+
 async function reqWithdraw(){
   const user_id=document.getElementById('uid').value||'guest';
   const email=document.getElementById('w_email').value;
   const amount_usd=Number(document.getElementById('w_amount').value||0);
-  const r=await fetch('/api/withdraw/request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id,email,amount_usd})});
-  const j=await r.json(); document.getElementById('wout').textContent=j.ok?'Request sent ✅':'Error: '+(j.error||'failed');
+  const r=await fetch('/api/withdraw/request',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({user_id,email,amount_usd})
+  });
+  const j=await r.json();
+  document.getElementById('wout').textContent=j.ok?'Request sent ✅':'Error: '+(j.error||'failed');
 }
+
+// PayPal Buttons integration
+(async () => {
+  try {
+    const cfg = await fetch('/api/config/public').then(r => r.json());
+    if (!cfg.PAYPAL_CLIENT_ID) return;
+
+    const s = document.createElement('script');
+    s.src = 'https://www.paypal.com/sdk/js?client-id=' +
+      encodeURIComponent(cfg.PAYPAL_CLIENT_ID) +
+      '&currency=USD&intent=capture&enable-funding=card';
+    s.onload = () => {
+      const uidInput = document.getElementById('uid');
+      paypal.Buttons({
+        createOrder: async () => {
+          const user_id = uidInput?.value || 'guest';
+          const amount_usd = prompt('Deposit amount (USD):', '5.00');
+          const r = await fetch('/api/paypal/deposit/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id, amount_usd: Number(amount_usd || 0) })
+          });
+          const j = await r.json();
+          return j.id;
+        },
+        onApprove: async (data) => {
+          const user_id = uidInput?.value || 'guest';
+          const r = await fetch('/api/paypal/deposit/capture', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id, order_id: data.orderID })
+          });
+          const j = await r.json();
+          alert('Deposit captured: $' + (j.captured_usd || 0));
+        },
+        onError: (err) => {
+          console.error('PayPal error', err);
+          alert('Something went wrong with the payment.');
+        }
+      }).render('#paypal-buttons');
+    };
+    document.head.appendChild(s);
+  } catch (e) {
+    console.error(e);
+  }
+})();
 </script>
-</body></html>
+</body>
+</html>
