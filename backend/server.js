@@ -623,6 +623,7 @@ app.post("/api/ai/quiz", async (req, res) => {
 /* =========================
    ROOT
 ========================= */
+app.get("/health", (_req, res) => res.send("ok"));
 app.get("/", (_req, res) =>
   res.sendFile(path.join(__dirname, "../frontend/index.html"))
 );
