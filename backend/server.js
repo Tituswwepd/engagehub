@@ -555,7 +555,7 @@ app.get("/auth/facebook/callback", async (req, res) => {
     });
 
     const fb_user_id = meResp.data.id;
-    the name = meResp.data.name || "Facebook User";
+    const name = meResp.data.name || "Facebook User";
     const user_id = "facebook:" + fb_user_id;
 
     await ensureUser(user_id, name);
