@@ -1,6 +1,22 @@
 {
+  "name": "engagehubcoin",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "EngageHubCoin – surveys, social integrations, PayPal deposits/payouts, WhatsApp, TikTok, Facebook, YouTube, AI quiz.",
+  "scripts": {
+    "start": "node backend/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
-    "sqlite": "^5.1.1",
+    "axios": "^1.7.0",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "sqlite": "^5.1.6",
     "sqlite3": "^5.1.7"
   }
 }
