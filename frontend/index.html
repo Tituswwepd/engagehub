@@ -5,52 +5,118 @@
   <title>EngageHub</title>
   <link rel="icon" href="/assets/icon.png" type="image/png"/>
   <style>
-    body{margin:0;background:linear-gradient(135deg,#0f172a,#1e1b4b 40%,#4f46e5);color:#e5e7eb;font-family:Inter,system-ui}
-    header{position:sticky;top:0;background:rgba(17,24,39,.75);backdrop-filter:blur(8px);padding:14px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #1f2937}
+    :root{
+      --bg1:#0f172a; --bg2:#1e1b4b; --bg3:#4f46e5;
+      --card:#0b1220; --border:#1f2937; --text:#e5e7eb; --muted:#9ca3af; --brand:#FFD700;
+      --fb:#1877F2; --tt:#000000; --yt:#FF0000; --wa:#25D366;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(135deg,var(--bg1),var(--bg2) 40%,var(--bg3));color:var(--text);font-family:Inter,system-ui}
+    header{position:sticky;top:0;background:rgba(17,24,39,.75);backdrop-filter:blur(8px);padding:14px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);z-index:10}
     header img{width:28px;height:28px;border-radius:50%}
+    header b{font-size:16px;letter-spacing:.3px}
     main{max-width:1100px;margin:0 auto;padding:16px}
-    .card{background:#0b1220;border:1px solid #1f2937;border-radius:14px;padding:16px;margin:12px 0}
     .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
-    input,button{padding:10px;border-radius:10px;border:1px solid #1f2937;background:#0b1220;color:#e5e7eb}
-    button{background:#FFD700;color:#111827;border:none;font-weight:900;cursor:pointer}
-    .big{font-size:28px;font-weight:900;color:#FFD700;text-shadow:0 0 12px rgba(255,215,0,.25)}
-    .muted{color:#9ca3af;font-size:12px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px}
+    input,button,select,textarea{padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text)}
+    button.primary{background:var(--brand);color:#111827;border:none;font-weight:900;cursor:pointer}
+    .big{font-size:28px;font-weight:900;color:var(--brand);text-shadow:0 0 12px rgba(255,215,0,.25)}
+    .muted{color:var(--muted);font-size:12px}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    a.btn{display:inline-block;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:900}
+    .btn-fb{background:var(--fb);color:#fff}
+    .btn-tt{background:var(--tt);color:#fff;border:1px solid #222}
+    .btn-wa{background:var(--wa);color:#111}
+    .yt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+    .yt-card{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#0a1020}
+    .yt-thumb{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}
+    .yt-title{padding:8px;font-size:13px;line-height:1.2}
+    .quiz-q{margin:8px 0 6px;font-weight:700}
+    .quiz-opt{display:block;margin:6px 0;padding:8px;border:1px solid var(--border);border-radius:10px;background:#0b1220;cursor:pointer}
+    .ok{color:#22c55e}.bad{color:#ef4444}
   </style>
 </head>
 <body>
-  <header><img src="/assets/icon.png"/><b>EngageHub</b></header>
+  <header><img src="/assets/icon.png" alt="logo"/><b>EngageHub</b></header>
+
   <main>
     <div class="grid">
-      <!-- Wallet Card -->
+      <!-- Wallet -->
       <div class="card">
         <h3>Available to withdraw</h3>
         <div id="avail" class="big">—</div>
-        <div>
+        <div class="row">
           <input id="uid" placeholder="your user id"/>
-          <button onclick="loadWallet()">Refresh</button>
+          <button class="primary" onclick="loadWallet()">Refresh</button>
         </div>
         <div class="muted">We’ll show you exactly what you can withdraw now.</div>
       </div>
 
-      <!-- Withdrawal Request Card -->
+      <!-- Withdraw Request -->
       <div class="card">
         <h3>Request Withdrawal</h3>
-        <div><input id="w_email" placeholder="PayPal email"/></div>
-        <div><input id="w_amount" placeholder="Amount (USD)"/></div>
-        <button onclick="reqWithdraw()">Send request</button>
-        <div id="wout" class="muted"></div>
+        <div class="row"><input id="w_email" placeholder="PayPal email" style="flex:1"/></div>
+        <div class="row"><input id="w_amount" placeholder="Amount (USD)" style="flex:1"/></div>
+        <button class="primary" onclick="reqWithdraw()">Send request</button>
+        <div id="wout" class="muted" style="margin-top:6px"></div>
       </div>
 
-      <!-- Deposit Card -->
+      <!-- Deposit (PayPal / Card) -->
       <div class="card">
         <h3>Deposit (PayPal / Card)</h3>
         <div id="paypal-buttons"></div>
         <div class="muted">Top up with PayPal balance or credit/debit card.</div>
       </div>
+
+      <!-- Social Connects -->
+      <div class="card">
+        <h3>Connect Accounts</h3>
+        <div class="row">
+          <a class="btn btn-fb" href="/auth/facebook">Connect Facebook</a>
+          <a class="btn btn-tt" href="/auth/tiktok">Connect TikTok</a>
+        </div>
+        <div class="muted">Use these to personalize your experience and unlock more actions.</div>
+      </div>
+
+      <!-- WhatsApp (send a message) -->
+      <div class="card">
+        <h3>WhatsApp</h3>
+        <div class="row">
+          <input id="wa_to" placeholder="Phone with country code e.g. 2547XXXXXXXX" style="flex:1"/>
+        </div>
+        <div class="row">
+          <textarea id="wa_text" rows="3" placeholder="Your message..." style="flex:1"></textarea>
+        </div>
+        <button class="btn btn-wa" onclick="sendWhatsApp()">Send WhatsApp Message</button>
+        <div id="wa_out" class="muted" style="margin-top:6px"></div>
+        <div class="muted">Requires META_ACCESS_TOKEN & WHATSAPP_PHONE_NUMBER_ID set on the server.</div>
+      </div>
+
+      <!-- YouTube Feed -->
+      <div class="card">
+        <h3>Latest Videos</h3>
+        <div id="yt" class="yt-grid"></div>
+        <div id="yt-note" class="muted">Shows from your configured channel if a YouTube API key & channel are set.</div>
+      </div>
+
+      <!-- AI Quiz -->
+      <div class="card">
+        <h3>AI Quiz</h3>
+        <div class="row">
+          <input id="quiz_topic" placeholder="topic e.g. general, tech, Kenya"/>
+          <select id="quiz_n">
+            <option>5</option><option>7</option><option>10</option>
+          </select>
+          <button class="primary" onclick="startQuiz()">Start</button>
+        </div>
+        <div id="quiz_box" style="margin-top:8px"></div>
+        <div id="quiz_msg" class="muted"></div>
+      </div>
     </div>
   </main>
 
 <script>
+/* ===== Wallet & Withdraw ===== */
 async function loadWallet(){
   const uid=document.getElementById('uid').value||'guest';
   const r=await fetch('/api/wallet/'+encodeURIComponent(uid));
@@ -58,65 +124,108 @@ async function loadWallet(){
   const f=(n)=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
   document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
 }
-
 async function reqWithdraw(){
   const user_id=document.getElementById('uid').value||'guest';
-  const email=document.getElementById('w_email').value;
+  const email=document.getElementById('w_email').value.trim();
   const amount_usd=Number(document.getElementById('w_amount').value||0);
-  const r=await fetch('/api/withdraw/request',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({user_id,email,amount_usd})
-  });
+  if(!email||!amount_usd){document.getElementById('wout').textContent='Enter email and amount.';return;}
+  const r=await fetch('/api/withdraw/request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id,email,amount_usd})});
   const j=await r.json();
   document.getElementById('wout').textContent=j.ok?'Request sent ✅':'Error: '+(j.error||'failed');
 }
 
-// PayPal Buttons integration
+/* ===== PayPal Buttons (deposit) ===== */
 (async () => {
   try {
     const cfg = await fetch('/api/config/public').then(r => r.json());
     if (!cfg.PAYPAL_CLIENT_ID) return;
-
     const s = document.createElement('script');
-    s.src = 'https://www.paypal.com/sdk/js?client-id=' +
-      encodeURIComponent(cfg.PAYPAL_CLIENT_ID) +
-      '&currency=USD&intent=capture&enable-funding=card';
+    s.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(cfg.PAYPAL_CLIENT_ID) + '&currency=USD&intent=capture&enable-funding=card';
     s.onload = () => {
       const uidInput = document.getElementById('uid');
       paypal.Buttons({
         createOrder: async () => {
           const user_id = uidInput?.value || 'guest';
-          const amount_usd = prompt('Deposit amount (USD):', '5.00');
-          const r = await fetch('/api/paypal/deposit/create', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id, amount_usd: Number(amount_usd || 0) })
-          });
-          const j = await r.json();
-          return j.id;
+          const amount_usd = prompt('Deposit amount (USD):','5.00');
+          const r = await fetch('/api/paypal/deposit/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ user_id, amount_usd: Number(amount_usd||0) })});
+          const j = await r.json(); return j.id;
         },
         onApprove: async (data) => {
           const user_id = uidInput?.value || 'guest';
-          const r = await fetch('/api/paypal/deposit/capture', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id, order_id: data.orderID })
-          });
-          const j = await r.json();
-          alert('Deposit captured: $' + (j.captured_usd || 0));
+          const r = await fetch('/api/paypal/deposit/capture',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ user_id, order_id: data.orderID })});
+          const j = await r.json(); alert('Deposit captured: $'+(j.captured_usd||0));
         },
-        onError: (err) => {
-          console.error('PayPal error', err);
-          alert('Something went wrong with the payment.');
-        }
+        onError: (err)=>{ console.error(err); alert('Payment error.'); }
       }).render('#paypal-buttons');
     };
     document.head.appendChild(s);
-  } catch (e) {
-    console.error(e);
-  }
+  } catch(e){ console.error(e); }
 })();
+
+/* ===== WhatsApp Send ===== */
+async function sendWhatsApp(){
+  const to = document.getElementById('wa_to').value.trim();
+  const text = document.getElementById('wa_text').value.trim();
+  if(!to || !text){ document.getElementById('wa_out').textContent='Enter phone and message.'; return; }
+  const r = await fetch('/api/whatsapp/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to, text })});
+  const j = await r.json();
+  document.getElementById('wa_out').textContent = j.ok ? 'Message sent ✅' : ('Error: ' + (j.error||'failed'));
+}
+
+/* ===== YouTube Feed ===== */
+(async () => {
+  try{
+    const grid=document.getElementById('yt');
+    const res=await fetch('/api/youtube/videos'); const data=await res.json();
+    const items=data.items||[];
+    if(!items.length){ document.getElementById('yt-note').textContent='No videos found (check API key/channel).'; return; }
+    grid.innerHTML = items.map(i=>{
+      const id = i.id.videoId || i.id.playlistId || i.id.channelId || '';
+      const sn = i.snippet||{};
+      const thumb = (sn.thumbnails?.medium?.url)|| (sn.thumbnails?.high?.url)||'';
+      const title = sn.title||'';
+      const url = id ? `https://www.youtube.com/watch?v=${id}` : '#';
+      return `
+        <a class="yt-card" href="${url}" target="_blank" rel="noopener">
+          <img class="yt-thumb" src="${thumb}" alt="">
+          <div class="yt-title">${title}</div>
+        </a>
+      `;
+    }).join('');
+  }catch(e){ console.error(e); }
+})();
+
+/* ===== AI Quiz ===== */
+let quizState = { items:[], i:0, score:0 };
+async function startQuiz(){
+  const topic = document.getElementById('quiz_topic').value || 'general';
+  const n = Number(document.getElementById('quiz_n').value||5);
+  const r = await fetch('/api/ai/quiz',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic, n})});
+  const j = await r.json();
+  quizState = { items: j.items||[], i:0, score:0 };
+  document.getElementById('quiz_msg').textContent = `Provider: ${j.provider||'local'}`;
+  renderQuiz();
+}
+function renderQuiz(){
+  const box = document.getElementById('quiz_box'); box.innerHTML='';
+  const { items, i, score } = quizState;
+  if(!items.length){ box.innerHTML='<div class="muted">No questions.</div>'; return; }
+  if(i>=items.length){ box.innerHTML=`<div class="big">Score: ${score}/${items.length}</div>`; return; }
+  const q = items[i];
+  const qEl = document.createElement('div'); qEl.className='quiz-q'; qEl.textContent=(i+1)+'. '+q.q;
+  box.appendChild(qEl);
+  q.options.forEach((opt,idx)=>{
+    const b=document.createElement('button');
+    b.className='quiz-opt';
+    b.textContent=opt;
+    b.onclick=()=>{
+      if(idx===q.answer){ quizState.score++; b.classList.add('ok'); }
+      else{ b.classList.add('bad'); }
+      setTimeout(()=>{ quizState.i++; renderQuiz(); }, 400);
+    };
+    box.appendChild(b);
+  });
+}
 </script>
 </body>
 </html>

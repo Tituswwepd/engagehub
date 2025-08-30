@@ -72,6 +72,23 @@ async function initDb() {
       raw TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    -- OAuth token stores
+    CREATE TABLE IF NOT EXISTS tiktok_tokens (
+      user_id TEXT PRIMARY KEY,
+      access_token TEXT,
+      refresh_token TEXT,
+      expires_at INTEGER,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS facebook_tokens (
+      fb_user_id TEXT PRIMARY KEY,
+      user_id TEXT,             -- our internal user id
+      access_token TEXT,
+      expires_at INTEGER,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 }
 
@@ -139,6 +156,10 @@ function classifyProvider(p) {
 app.get("/api/config/public", (_req, res) => {
   res.json({
     PAYPAL_CLIENT_ID: process.env.PAYPAL_CLIENT_ID || "",
+    FB_APP_ID: process.env.FB_APP_ID || "",
+    TIKTOK_CLIENT_KEY: process.env.TIKTOK_CLIENT_KEY || "",
+    YOUTUBE_CHANNEL_ID: process.env.YOUTUBE_CHANNEL_ID || "",
+    WHATSAPP_ENABLED: Boolean(process.env.META_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID)
   });
 });
 
@@ -179,13 +200,13 @@ app.post("/api/withdraw/request", async (req, res) => {
       amt
     );
     res.json({ ok: true });
-  } catch (e) {
+  } catch {
     res.status(500).json({ error: "request_failed" });
   }
 });
 
 /* =========================
-   SURVEY/OFFER POSTBACKS (examples)
+   SURVEY/OFFER POSTBACKS
 ========================= */
 app.get("/webhooks/cpx", async (req, res) => {
   try {
@@ -203,9 +224,7 @@ app.get("/webhooks/cpx", async (req, res) => {
       JSON.stringify(req.query)
     );
     res.send("OK");
-  } catch {
-    res.status(500).send("ERR");
-  }
+  } catch { res.status(500).send("ERR"); }
 });
 
 app.get("/webhooks/bitlabs", async (req, res) => {
@@ -224,9 +243,7 @@ app.get("/webhooks/bitlabs", async (req, res) => {
       JSON.stringify(req.query)
     );
     res.send("OK");
-  } catch {
-    res.status(500).send("ERR");
-  }
+  } catch { res.status(500).send("ERR"); }
 });
 
 app.get("/webhooks/adgem", async (req, res) => {
@@ -247,9 +264,7 @@ app.get("/webhooks/adgem", async (req, res) => {
       JSON.stringify(req.query)
     );
     res.send("OK");
-  } catch {
-    res.status(500).send("ERR");
-  }
+  } catch { res.status(500).send("ERR"); }
 });
 
 app.get("/webhooks/tapjoy", async (req, res) => {
@@ -268,9 +283,7 @@ app.get("/webhooks/tapjoy", async (req, res) => {
       JSON.stringify(req.query)
     );
     res.send("OK");
-  } catch {
-    res.status(500).send("ERR");
-  }
+  } catch { res.status(500).send("ERR"); }
 });
 
 /* =========================
@@ -315,9 +328,7 @@ app.post("/api/paypal/deposit/create", async (req, res) => {
       { headers: { Authorization: "Bearer " + token } }
     );
     res.json(data);
-  } catch {
-    res.status(500).json({ error: "create_order_failed" });
-  }
+  } catch { res.status(500).json({ error: "create_order_failed" }); }
 });
 
 app.post("/api/paypal/deposit/capture", async (req, res) => {
@@ -354,9 +365,7 @@ app.post("/api/paypal/deposit/capture", async (req, res) => {
     );
 
     res.json({ ok: true, captured_usd: total });
-  } catch {
-    res.status(500).json({ error: "capture_failed" });
-  }
+  } catch { res.status(500).json({ error: "capture_failed" }); }
 });
 
 /* =========================
@@ -437,8 +446,177 @@ app.post("/api/admin/payouts/paypal", async (req, res) => {
     );
 
     res.json({ ok: true, data });
+  } catch { res.status(500).json({ error: "payout_failed" }); }
+});
+
+/* =========================
+   WHATSAPP (Meta) WEBHOOKS + SEND
+========================= */
+// VERIFY (Meta setup)
+app.get("/webhooks/whatsapp", (req, res) => {
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+  if (mode === "subscribe" && token === process.env.META_VERIFY_TOKEN) return res.status(200).send(challenge);
+  res.sendStatus(403);
+});
+
+// RECEIVE (incoming messages)
+app.post("/webhooks/whatsapp", async (_req, res) => {
+  // Parse incoming messages if you need. For now, just 200 OK.
+  res.sendStatus(200);
+});
+
+// SEND (simple text message)
+app.post("/api/whatsapp/send", async (req, res) => {
+  try {
+    const token = process.env.META_ACCESS_TOKEN;
+    const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    const { to, text } = req.body || {};
+    if (!token || !phoneId) return res.status(400).json({ error: "missing_whatsapp_config" });
+    if (!to || !text) return res.status(400).json({ error: "missing_params" });
+
+    const url = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
+    const payload = { messaging_product: "whatsapp", to, type: "text", text: { body: text } };
+    const { data } = await axios.post(url, payload, {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+    });
+
+    res.json({ ok: true, data });
+  } catch (e) {
+    res.status(500).json({ error: "whatsapp_send_failed" });
+  }
+});
+
+/* =========================
+   TIKTOK OAUTH (skeleton)
+========================= */
+app.get("/auth/tiktok", (req, res) => {
+  const clientKey = process.env.TIKTOK_CLIENT_KEY;
+  const redirectUri = encodeURIComponent(process.env.TIKTOK_REDIRECT_URI || "");
+  const scope = encodeURIComponent(process.env.TIKTOK_SCOPES || "openid,profile");
+  const state = "tt-" + Date.now();
+  const url = `https://www.tiktok.com/auth/authorize/?client_key=${clientKey}&response_type=code&scope=${scope}&redirect_uri=${redirectUri}&state=${state}`;
+  res.redirect(url);
+});
+
+app.get("/auth/tiktok/callback", async (req, res) => {
+  try {
+    const code = req.query.code;
+    const { data } = await axios.post("https://open.tiktokapis.com/v2/oauth/token/", {
+      client_key: process.env.TIKTOK_CLIENT_KEY,
+      client_secret: process.env.TIKTOK_CLIENT_SECRET,
+      code,
+      grant_type: "authorization_code",
+      redirect_uri: process.env.TIKTOK_REDIRECT_URI
+    }, { headers: { "Content-Type": "application/json" } });
+
+    const { access_token, refresh_token, expires_in } = data.data || {};
+    const user_id = "tiktok:" + Date.now(); // map to your app user after fetching open_id
+    await ensureUser(user_id, "TikTok User");
+    const expires_at = Math.floor(Date.now()/1000) + Number(expires_in||0);
+    await db.run(
+      "INSERT OR REPLACE INTO tiktok_tokens (user_id, access_token, refresh_token, expires_at) VALUES (?,?,?,?)",
+      user_id, access_token, refresh_token, expires_at
+    );
+
+    res.send("<pre>TikTok connected. You can close this window.</pre>");
   } catch {
-    res.status(500).json({ error: "payout_failed" });
+    res.status(500).send("tiktok_auth_error");
+  }
+});
+
+/* =========================
+   FACEBOOK OAUTH (Login)
+========================= */
+app.get("/auth/facebook", (req, res) => {
+  const appId = process.env.FB_APP_ID;
+  const redirect = encodeURIComponent(process.env.FB_REDIRECT_URI || "");
+  const state = "fb-" + Date.now();
+  const scope = encodeURIComponent("public_profile,email");
+  const url = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirect}&state=${state}&response_type=code&scope=${scope}`;
+  res.redirect(url);
+});
+
+app.get("/auth/facebook/callback", async (req, res) => {
+  try {
+    const { code } = req.query;
+    const appId = process.env.FB_APP_ID;
+    const appSecret = process.env.FB_APP_SECRET;
+    const redirect = process.env.FB_REDIRECT_URI;
+
+    const tokenResp = await axios.get("https://graph.facebook.com/v19.0/oauth/access_token", {
+      params: { client_id: appId, redirect_uri: redirect, client_secret: appSecret, code }
+    });
+
+    const access_token = tokenResp.data.access_token;
+    const meResp = await axios.get("https://graph.facebook.com/v19.0/me", {
+      params: { access_token, fields: "id,name" },
+    });
+
+    const fb_user_id = meResp.data.id;
+    const name = meResp.data.name || "Facebook User";
+    const user_id = "facebook:" + fb_user_id;
+
+    await ensureUser(user_id, name);
+    const expires_at = Math.floor(Date.now() / 1000) + 60 * 60 * 2; // placeholder
+    await db.run(
+      "INSERT OR REPLACE INTO facebook_tokens (fb_user_id, user_id, access_token, expires_at) VALUES (?,?,?,?)",
+      fb_user_id, user_id, access_token, expires_at
+    );
+
+    res.send(`<pre>Facebook connected for ${name} (user_id: ${user_id}). You can close this window.</pre>`);
+  } catch {
+    res.status(500).send("facebook_auth_error");
+  }
+});
+
+/* =========================
+   YOUTUBE FEED
+========================= */
+app.get("/api/youtube/videos", async (_req, res) => {
+  try {
+    const key = process.env.YOUTUBE_API_KEY, channelId = process.env.YOUTUBE_CHANNEL_ID;
+    if (!key || !channelId) return res.json({ items: [] });
+    const { data } = await axios.get("https://www.googleapis.com/youtube/v3/search", {
+      params: { key, channelId, part: "snippet,id", order: "date", maxResults: 10 }
+    });
+    res.json(data);
+  } catch { res.status(500).json({ error: "youtube_error" }); }
+});
+
+/* =========================
+   AI QUIZ (OpenAI optional)
+========================= */
+app.post("/api/ai/quiz", async (req, res) => {
+  const topic = (req.body.topic || "general").slice(0,80);
+  const n = Math.min(Number(req.body.n || 5), 10);
+  const key = process.env.OPENAI_API_KEY;
+
+  async function localQuiz() {
+    const bank = [
+      { q: "Which metal has the symbol Au?", options:["Silver","Gold","Copper","Tin"], answer:1 },
+      { q: "Capital of Kenya?", options:["Mombasa","Kisumu","Nairobi","Eldoret"], answer:2 },
+      { q: "Largest planet?", options:["Earth","Saturn","Jupiter","Venus"], answer:2 },
+      { q: "HTTP stands for?", options:["Hyper Text Transfer Protocol","High Transfer Type Protocol","Host Transfer Tech Process","None"], answer:0 },
+      { q: "2 + 5 × 2 = ?", options:["9","12","14","7"], answer:1 },
+      { q: "Creator of JavaScript?", options:["Brendan Eich","Guido Rossum","Linus Torvalds","James Gosling"], answer:0 }
+    ];
+    return bank.slice(0,n);
+  }
+
+  try {
+    if (!key) return res.json({ provider:"local", items: await localQuiz() });
+    const { OpenAI } = await import("openai");
+    const client = new OpenAI({ apiKey: key });
+    const prompt = `Create ${n} multiple-choice questions on "${topic}". Return JSON {items:[{q,options,answer}]}`;
+    const r = await client.responses.create({ model:"gpt-4.1-mini", input: prompt, temperature:0.4 });
+    let text = r.output_text; let parsed;
+    try { parsed = JSON.parse(text); }
+    catch { const m = text.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : {items: await localQuiz()}; }
+    res.json({ provider:"openai", items: parsed.items?.slice(0,n) || await localQuiz() });
+  } catch {
+    res.json({ provider:"local", items: await localQuiz() });
   }
 });
 
