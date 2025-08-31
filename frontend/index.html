@@ -48,15 +48,28 @@
 
   <main>
     <div class="grid">
+      <!-- Auth -->
+      <div class="card" style="grid-column:1/-1">
+        <h3>Login / Register</h3>
+        <div class="row">
+          <input id="auth_email" placeholder="email" />
+          <input id="auth_pass" type="password" placeholder="password" />
+          <button class="primary" onclick="register()">Register</button>
+          <button class="primary" onclick="login()">Login</button>
+          <button onclick="logout()">Logout</button>
+        </div>
+        <div class="muted" id="auth_msg"></div>
+      </div>
+
       <!-- Wallet -->
       <div class="card">
         <h3>Available to withdraw</h3>
         <div id="avail" class="big">—</div>
         <div class="row">
-          <input id="uid" placeholder="your user id"/>
+          <input id="uid" placeholder="your user id (only for guests)"/>
           <button class="primary" onclick="loadWallet()">Refresh</button>
         </div>
-        <div class="muted">We’ll show you exactly what you can withdraw now.</div>
+        <div class="muted">If logged in, your JWT account is used automatically. Guests can type a user id.</div>
       </div>
 
       <!-- Withdraw Request -->
@@ -139,7 +152,7 @@
         <div id="survey_pills" class="row" style="margin-bottom:8px"></div>
         <iframe id="survey_frame" class="survey"></iframe>
         <div class="muted" style="margin-top:8px">
-          Tip: Always enter your <b>User ID</b> at the top so credit links back to your wallet.
+          Tip: Guests: enter a <b>User ID</b> above so credit links back to your wallet. Logged-in users don’t need it.
         </div>
       </div>
     </div>
@@ -149,39 +162,63 @@
 <script src="/admin-shortcut.js"></script>
 
 <script>
-/* ===== Public constants for survey walls =====
-   Replace ONLY public IDs that networks allow to be exposed in the client.
-   Do NOT paste any private secrets here.
-*/
+/* ===== JWT auth state & helpers ===== */
+let AUTH = { token: localStorage.getItem('jwt') || null };
+
+function authHeaders(base = {}) {
+  return AUTH.token ? { ...base, Authorization: 'Bearer ' + AUTH.token } : base;
+}
+
+async function register(){
+  const email = document.getElementById('auth_email').value.trim();
+  const password = document.getElementById('auth_pass').value;
+  const r = await fetch('/api/auth/register',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({email,password})
+  });
+  const j = await r.json();
+  if(j.token){
+    AUTH.token=j.token; localStorage.setItem('jwt', j.token);
+    document.getElementById('auth_msg').textContent='Registered & logged in.';
+  } else {
+    document.getElementById('auth_msg').textContent=j.error||'failed';
+  }
+}
+
+async function login(){
+  const email = document.getElementById('auth_email').value.trim();
+  const password = document.getElementById('auth_pass').value;
+  const r = await fetch('/api/auth/login',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({email,password})
+  });
+  const j = await r.json();
+  if(j.token){
+    AUTH.token=j.token; localStorage.setItem('jwt', j.token);
+    document.getElementById('auth_msg').textContent='Logged in.';
+  } else {
+    document.getElementById('auth_msg').textContent=j.error||'failed';
+  }
+}
+
+function logout(){
+  AUTH.token=null; localStorage.removeItem('jwt');
+  document.getElementById('auth_msg').textContent='Logged out.';
+}
+
+/* ===== Public constants for survey walls (client-safe only) ===== */
 const SURVEY = {
-  // CPX docs: app_id + ext_user_id
   cpx:    (uid) => `https://offers.cpx-research.com/index.php?app_id=YOUR_CPX_APP_ID&ext_user_id=${encodeURIComponent(uid)}`,
-
-  // BitLabs web: publishable token + uid
   bitlabs:(uid) => `https://web.bitlabs.ai/?uid=${encodeURIComponent(uid)}&token=YOUR_BITLABS_PUBLISHABLE_TOKEN`,
-
-  // AdGem: appid + playerid
   adgem:  (uid) => `https://wall.adgem.com/wall/api?appid=YOUR_ADGEM_APP_ID&playerid=${encodeURIComponent(uid)}`,
-
-  // Tapjoy: usually needs app id/user id (web offerwall availability varies per account)
   tapjoy: (uid) => `https://www.tapjoy.com/offerwall?appid=YOUR_TAPJOY_APP_ID&user_id=${encodeURIComponent(uid)}`,
-
-  // OfferToro (common format: /ifr/show/PUBLISHER_ID/USER_ID/HASH_OR_KEY)
   offertoro:(uid)=> `https://www.offertoro.com/ifr/show/YOUR_PUBLISHER_ID/${encodeURIComponent(uid)}/YOUR_PUBLIC_HASH`,
-
-  // Persona.ly (web wall link format depends on account; placeholder):
   personaly:(uid)=> `https://persona.ly/offerwall/?appid=YOUR_PERSONALY_APP_ID&userid=${encodeURIComponent(uid)}`,
-
-  // Ayet Studios:
   ayet:(uid)=> `https://www.ayetstudios.com/offerwall/?appid=YOUR_AYET_APP_ID&userid=${encodeURIComponent(uid)}`,
-
-  // KiwiWall:
   kiwiwall:(uid)=> `https://www.kiwiwall.com/wall/YOUR_SITE_ID/${encodeURIComponent(uid)}`,
-
-  // OfferDaddy:
   offerdaddy:(uid)=> `https://offerdaddy.com/wall/YOUR_SITE_ID/${encodeURIComponent(uid)}`,
-
-  // Wannads:
   wannads:(uid)=> `https://wall.wannads.com/wall?apiKey=YOUR_WANNADS_PUBLISHABLE_KEY&userId=${encodeURIComponent(uid)}`
 };
 
@@ -198,32 +235,49 @@ const SURVEY_LIST = [
   ).join('');
 })();
 function openSurvey(key, el){
-  const uid=document.getElementById('uid').value||'guest';
+  const uidInput = document.getElementById('uid');
+  const uid = (AUTH.token ? 'jwt' : (uidInput.value||'guest')); // logged-in users are tracked by server; guests must provide uid
   const urlBuilder = SURVEY[key];
   const frame=document.getElementById('survey_frame');
   if(!urlBuilder){ alert('Provider not configured'); return; }
-  // Highlight pill
   document.querySelectorAll('#survey_pills .pill').forEach(p=>p.classList.remove('active'));
   if(el) el.classList.add('active');
-
-  const url = urlBuilder(uid);
-  frame.src = url;
+  frame.src = urlBuilder(uid);
 }
 
 /* ===== Wallet & Withdraw ===== */
 async function loadWallet(){
-  const uid=document.getElementById('uid').value||'guest';
-  const r=await fetch('/api/wallet/'+encodeURIComponent(uid));
-  const j=await r.json();
-  const f=(n)=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
-  document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
+  try{
+    // Prefer JWT if logged in
+    if (AUTH.token) {
+      const r = await fetch('/api/wallet', { headers: authHeaders() });
+      if (r.ok) {
+        const j = await r.json();
+        const f=(n)=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
+        document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
+        return;
+      }
+    }
+    // Fallback for guests by user_id
+    const uid=document.getElementById('uid').value||'guest';
+    const r=await fetch('/api/wallet/'+encodeURIComponent(uid));
+    const j=await r.json();
+    const f=(n)=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
+    document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
+  }catch(e){
+    document.getElementById('avail').textContent='—';
+  }
 }
+
 async function reqWithdraw(){
-  const user_id=document.getElementById('uid').value||'guest';
   const email=document.getElementById('w_email').value.trim();
   const amount_usd=Number(document.getElementById('w_amount').value||0);
   if(!email||!amount_usd){document.getElementById('wout').textContent='Enter email and amount.';return;}
-  const r=await fetch('/api/withdraw/request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id,email,amount_usd})});
+  const r=await fetch('/api/withdraw/request',{
+    method:'POST',
+    headers: authHeaders({'Content-Type':'application/json'}),
+    body:JSON.stringify({email,amount_usd})
+  });
   const j=await r.json();
   document.getElementById('wout').textContent=j.ok?'Request sent ✅':'Error: '+(j.error||'failed');
 }
@@ -236,18 +290,24 @@ async function reqWithdraw(){
     const s = document.createElement('script');
     s.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(cfg.PAYPAL_CLIENT_ID) + '&currency=USD&intent=capture&enable-funding=card';
     s.onload = () => {
-      const uidInput = document.getElementById('uid');
       paypal.Buttons({
         createOrder: async () => {
-          const user_id = uidInput?.value || 'guest';
           const amount_usd = prompt('Deposit amount (USD):','5.00');
-          const r = await fetch('/api/paypal/deposit/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ user_id, amount_usd: Number(amount_usd||0) })});
+          const r = await fetch('/api/paypal/deposit/create',{
+            method:'POST',
+            headers: authHeaders({'Content-Type':'application/json'}),
+            body:JSON.stringify({ amount_usd: Number(amount_usd||0) })
+          });
           const j = await r.json(); return j.id;
         },
         onApprove: async (data) => {
-          const user_id = uidInput?.value || 'guest';
-          const r = await fetch('/api/paypal/deposit/capture',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ user_id, order_id: data.orderID })});
+          const r = await fetch('/api/paypal/deposit/capture',{
+            method:'POST',
+            headers: authHeaders({'Content-Type':'application/json'}),
+            body:JSON.stringify({ order_id: data.orderID })
+          });
           const j = await r.json(); alert('Deposit captured: $'+(j.captured_usd||0));
+          loadWallet();
         },
         onError: (err)=>{ console.error(err); alert('Payment error.'); }
       }).render('#paypal-buttons');
@@ -261,7 +321,11 @@ async function sendWhatsApp(){
   const to = document.getElementById('wa_to').value.trim();
   const text = document.getElementById('wa_text').value.trim();
   if(!to || !text){ document.getElementById('wa_out').textContent='Enter phone and message.'; return; }
-  const r = await fetch('/api/whatsapp/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to, text })});
+  const r = await fetch('/api/whatsapp/send',{
+    method:'POST',
+    headers: authHeaders({'Content-Type':'application/json'}),
+    body:JSON.stringify({ to, text })
+  });
   const j = await r.json();
   document.getElementById('wa_out').textContent = j.ok ? 'Message sent ✅' : ('Error: ' + (j.error||'failed'));
 }
