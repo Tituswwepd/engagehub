@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "EngageHubCoin – surveys, social integrations, PayPal deposits/payouts, WhatsApp, TikTok, Facebook, YouTube, AI quiz, JWT auth, password reset.",
+  "description": "EngageHubCoin – surveys, social integrations, PayPal deposits/payouts, WhatsApp, TikTok, Facebook, YouTube, AI quiz.",
   "scripts": {
     "start": "node backend/server.js"
   },
@@ -19,6 +19,7 @@
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^7.0.6",
+    "sqlite": "^5.1.1",
     "sqlite3": "^5.1.7"
   }
 }
