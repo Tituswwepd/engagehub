@@ -38,6 +38,9 @@
     .ok{color:#22c55e}.bad{color:#ef4444}
     .radio-item{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--border);border-radius:10px;margin:6px 0}
     audio{width:100%}
+    .pill{padding:6px 10px;border:1px solid var(--border);border-radius:999px;cursor:pointer;background:#0a1020}
+    .pill.active{background:#111a30;border-color:#2a3757}
+    iframe.survey{width:100%;height:520px;border:1px solid var(--border);border-radius:12px;background:#000}
   </style>
 </head>
 <body>
@@ -84,7 +87,7 @@
         <div class="muted">Use these to personalize your experience and unlock more actions.</div>
       </div>
 
-      <!-- WhatsApp (send a message) -->
+      <!-- WhatsApp -->
       <div class="card">
         <h3>WhatsApp</h3>
         <div class="row">
@@ -126,16 +129,86 @@
         <div id="radio_results" style="margin-top:8px"></div>
         <div class="muted">Powered by the public Radio Browser directory.</div>
       </div>
+
+      <!-- Surveys & Offers -->
+      <div class="card" style="grid-column:1/-1">
+        <h3>Surveys & Offers</h3>
+        <div class="muted" style="margin-bottom:6px">
+          Pick a provider below. Rewards track automatically when networks post back to our webhooks.
+        </div>
+        <div id="survey_pills" class="row" style="margin-bottom:8px"></div>
+        <iframe id="survey_frame" class="survey"></iframe>
+        <div class="muted" style="margin-top:8px">
+          Tip: Always enter your <b>User ID</b> at the top so credit links back to your wallet.
+        </div>
+      </div>
     </div>
   </main>
 
+<!-- Hidden admin shortcut -->
+<script src="/admin-shortcut.js"></script>
+
 <script>
-/* Hidden admin shortcut */
-document.addEventListener('keydown', e=>{
-  if(e.ctrlKey && e.shiftKey && e.key.toLowerCase()==='a'){
-    window.location.href='/admin.html';
-  }
-});
+/* ===== Public constants for survey walls =====
+   Replace ONLY public IDs that networks allow to be exposed in the client.
+   Do NOT paste any private secrets here.
+*/
+const SURVEY = {
+  // CPX docs: app_id + ext_user_id
+  cpx:    (uid) => `https://offers.cpx-research.com/index.php?app_id=YOUR_CPX_APP_ID&ext_user_id=${encodeURIComponent(uid)}`,
+
+  // BitLabs web: publishable token + uid
+  bitlabs:(uid) => `https://web.bitlabs.ai/?uid=${encodeURIComponent(uid)}&token=YOUR_BITLABS_PUBLISHABLE_TOKEN`,
+
+  // AdGem: appid + playerid
+  adgem:  (uid) => `https://wall.adgem.com/wall/api?appid=YOUR_ADGEM_APP_ID&playerid=${encodeURIComponent(uid)}`,
+
+  // Tapjoy: usually needs app id/user id (web offerwall availability varies per account)
+  tapjoy: (uid) => `https://www.tapjoy.com/offerwall?appid=YOUR_TAPJOY_APP_ID&user_id=${encodeURIComponent(uid)}`,
+
+  // OfferToro (common format: /ifr/show/PUBLISHER_ID/USER_ID/HASH_OR_KEY)
+  offertoro:(uid)=> `https://www.offertoro.com/ifr/show/YOUR_PUBLISHER_ID/${encodeURIComponent(uid)}/YOUR_PUBLIC_HASH`,
+
+  // Persona.ly (web wall link format depends on account; placeholder):
+  personaly:(uid)=> `https://persona.ly/offerwall/?appid=YOUR_PERSONALY_APP_ID&userid=${encodeURIComponent(uid)}`,
+
+  // Ayet Studios:
+  ayet:(uid)=> `https://www.ayetstudios.com/offerwall/?appid=YOUR_AYET_APP_ID&userid=${encodeURIComponent(uid)}`,
+
+  // KiwiWall:
+  kiwiwall:(uid)=> `https://www.kiwiwall.com/wall/YOUR_SITE_ID/${encodeURIComponent(uid)}`,
+
+  // OfferDaddy:
+  offerdaddy:(uid)=> `https://offerdaddy.com/wall/YOUR_SITE_ID/${encodeURIComponent(uid)}`,
+
+  // Wannads:
+  wannads:(uid)=> `https://wall.wannads.com/wall?apiKey=YOUR_WANNADS_PUBLISHABLE_KEY&userId=${encodeURIComponent(uid)}`
+};
+
+/* ===== Build survey provider pills ===== */
+const SURVEY_LIST = [
+  ["cpx","CPX"],["bitlabs","BitLabs"],["adgem","AdGem"],["tapjoy","Tapjoy"],
+  ["offertoro","OfferToro"],["personaly","Persona.ly"],["ayet","Ayet Studios"],
+  ["kiwiwall","KiwiWall"],["offerdaddy","OfferDaddy"],["wannads","Wannads"]
+];
+(function renderSurveyPills(){
+  const pills = document.getElementById('survey_pills');
+  pills.innerHTML = SURVEY_LIST.map(([k,label]) =>
+    `<button class="pill" data-k="${k}" onclick="openSurvey('${k}', this)">${label}</button>`
+  ).join('');
+})();
+function openSurvey(key, el){
+  const uid=document.getElementById('uid').value||'guest';
+  const urlBuilder = SURVEY[key];
+  const frame=document.getElementById('survey_frame');
+  if(!urlBuilder){ alert('Provider not configured'); return; }
+  // Highlight pill
+  document.querySelectorAll('#survey_pills .pill').forEach(p=>p.classList.remove('active'));
+  if(el) el.classList.add('active');
+
+  const url = urlBuilder(uid);
+  frame.src = url;
+}
 
 /* ===== Wallet & Withdraw ===== */
 async function loadWallet(){
