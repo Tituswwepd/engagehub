@@ -8,15 +8,15 @@
     :root{
       --bg1:#0f172a; --bg2:#1e1b4b; --bg3:#4f46e5;
       --card:#0b1220; --border:#1f2937; --text:#e5e7eb; --muted:#9ca3af; --brand:#FFD700;
-      --fb:#1877F2; --tt:#000000; --yt:#FF0000; --wa:#25D366; --ig:#E1306C;
+      --fb:#1877F2; --tt:#000000; --yt:#FF0000; --wa:#25D366; --x:#000; --ig:#E1306C;
     }
     *{box-sizing:border-box}
     body{margin:0;background:linear-gradient(135deg,var(--bg1),var(--bg2) 40%,var(--bg3));color:var(--text);font-family:Inter,system-ui}
     header{position:sticky;top:0;background:rgba(17,24,39,.75);backdrop-filter:blur(8px);padding:14px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);z-index:10}
     header img{width:28px;height:28px;border-radius:50%}
     header b{font-size:16px;letter-spacing:.3px}
-    main{max-width:1200px;margin:0 auto;padding:16px}
-    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+    main{max-width:1100px;margin:0 auto;padding:16px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
     .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px}
     input,button,select,textarea{padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text)}
     button.primary{background:var(--brand);color:#111827;border:none;font-weight:900;cursor:pointer}
@@ -25,10 +25,10 @@
     .row{display:flex;gap:8px;flex-wrap:wrap}
     a.btn{display:inline-block;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:900}
     .btn-fb{background:var(--fb);color:#fff}
-    .btn-tiktok{background:#010101;color:#fff;border:1px solid #222}
-    .btn-wa{background:var(--wa);color:#111}
-    .btn-tt{background:#000;color:#fff;border:1px solid #222}
+    .btn-tt{background:var(--tt);color:#fff;border:1px solid #222}
+    .btn-x{background:var(--x);color:#fff;border:1px solid #222}
     .btn-ig{background:var(--ig);color:#fff}
+    .btn-wa{background:var(--wa);color:#111}
     .yt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
     .yt-card{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#0a1020}
     .yt-thumb{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}
@@ -36,9 +36,8 @@
     .quiz-q{margin:8px 0 6px;font-weight:700}
     .quiz-opt{display:block;margin:6px 0;padding:8px;border:1px solid var(--border);border-radius:10px;background:#0b1220;cursor:pointer}
     .ok{color:#22c55e}.bad{color:#ef4444}
-    .embed-box{border:1px dashed var(--border);border-radius:12px;padding:8px;min-height:80px}
-    .list{margin:0;padding-left:18px}
-    .list li{margin:4px 0}
+    .radio-item{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--border);border-radius:10px;margin:6px 0}
+    audio{width:100%}
   </style>
 </head>
 <body>
@@ -53,10 +52,6 @@
         <div class="row">
           <input id="uid" placeholder="your user id"/>
           <button class="primary" onclick="loadWallet()">Refresh</button>
-        </div>
-        <div id="authRow" class="row" style="margin-top:8px;display:none">
-          <button class="primary" onclick="issueToken()">Get Access Token</button>
-          <div class="muted">Required when server auth is enabled.</div>
         </div>
         <div class="muted">We’ll show you exactly what you can withdraw now.</div>
       </div>
@@ -81,8 +76,10 @@
       <div class="card">
         <h3>Connect Accounts</h3>
         <div class="row">
-          <a class="btn btn-fb" href="/auth/facebook">Connect Facebook</a>
-          <a class="btn btn-tiktok" href="/auth/tiktok">Connect TikTok</a>
+          <a class="btn btn-fb" href="/auth/facebook">Facebook</a>
+          <a class="btn btn-ig" href="/auth/instagram">Instagram</a>
+          <a class="btn btn-tt" href="/auth/tiktok">TikTok</a>
+          <a class="btn btn-x" href="/auth/twitter">X (Twitter)</a>
         </div>
         <div class="muted">Use these to personalize your experience and unlock more actions.</div>
       </div>
@@ -100,38 +97,6 @@
         <div id="wa_out" class="muted" style="margin-top:6px"></div>
       </div>
 
-      <!-- X (Twitter) Embed -->
-      <div class="card">
-        <h3>View a Tweet/X Post</h3>
-        <div class="row">
-          <input id="twurl" placeholder="Paste Tweet URL (https://twitter.com/.../status/...)" style="flex:1"/>
-          <button class="primary" onclick="loadTweet()">Embed</button>
-        </div>
-        <div id="twbox" class="embed-box" style="margin-top:8px"></div>
-      </div>
-
-      <!-- Instagram Embed -->
-      <div class="card">
-        <h3>View an Instagram Post/Reel</h3>
-        <div class="row">
-          <input id="igurl" placeholder="Paste Instagram URL" style="flex:1"/>
-          <button class="primary" onclick="loadIG()">Embed</button>
-        </div>
-        <div id="igbox" class="embed-box" style="margin-top:8px"></div>
-        <div id="ig_note" class="muted">Requires server IG oEmbed token.</div>
-      </div>
-
-      <!-- Radio -->
-      <div class="card">
-        <h3>Radio</h3>
-        <div class="row">
-          <select id="station" style="flex:1"></select>
-          <button onclick="scanStations()">Rescan</button>
-        </div>
-        <audio id="player" controls preload="none" style="width:100%;margin-top:8px;"></audio>
-        <div id="radio_msg" class="muted" style="margin-top:6px">Scanning for available stations…</div>
-      </div>
-
       <!-- YouTube Feed -->
       <div class="card">
         <h3>Latest Videos</h3>
@@ -144,66 +109,38 @@
         <h3>AI Quiz</h3>
         <div class="row">
           <input id="quiz_topic" placeholder="topic e.g. general, tech, Kenya"/>
-          <select id="quiz_n">
-            <option>5</option><option>7</option><option>10</option>
-          </select>
+          <select id="quiz_n"><option>5</option><option>7</option><option>10</option></select>
           <button class="primary" onclick="startQuiz()">Start</button>
         </div>
         <div id="quiz_box" style="margin-top:8px"></div>
         <div id="quiz_msg" class="muted"></div>
       </div>
 
-      <!-- Data Buyers -->
+      <!-- Radio -->
       <div class="card">
-        <h3>Data Buyers</h3>
-        <ul id="buyers" class="list"></ul>
-        <div class="muted">These are integrated networks; statuses update as you onboard.</div>
+        <h3>Radio</h3>
+        <div class="row">
+          <input id="radio_q" placeholder="Search stations e.g. kenya, sports, gospel" style="flex:1"/>
+          <button class="primary" onclick="searchRadio()">Search</button>
+        </div>
+        <div id="radio_results" style="margin-top:8px"></div>
+        <div class="muted">Powered by the public Radio Browser directory.</div>
       </div>
     </div>
   </main>
 
 <script>
-/* ===== Small helper: auth-aware fetch ===== */
-let CFG = { AUTH_REQUIRED: false };
-function authHeader(){
-  const t = localStorage.getItem('ehc_token');
-  return (CFG.AUTH_REQUIRED && t) ? {'x-auth': t} : {};
-}
-async function apiFetch(url, opts={}){
-  opts.headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{}, authHeader());
-  const r = await fetch(url, opts);
-  return r;
-}
-
-/* ===== Public config boot ===== */
-(async ()=>{
-  try{
-    const cfg = await fetch('/api/config/public').then(r=>r.json());
-    CFG = cfg || {};
-    if (cfg.AUTH_REQUIRED) document.getElementById('authRow').style.display='flex';
-    // PayPal buttons
-    if (cfg.PAYPAL_CLIENT_ID){
-      const s = document.createElement('script');
-      s.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(cfg.PAYPAL_CLIENT_ID) + '&currency=USD&intent=capture&enable-funding=card';
-      s.onload = renderPayPalButtons;
-      document.head.appendChild(s);
-    }
-  }catch(e){ console.error(e); }
-})();
-
-/* ===== Auth token (only if server enforces it) ===== */
-async function issueToken(){
-  const user_id=document.getElementById('uid').value||'guest';
-  const r = await fetch('/api/auth/issue',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id})});
-  const j = await r.json();
-  if(j.token){ localStorage.setItem('ehc_token', j.token); alert('Access token set.'); }
-  else alert('Failed to obtain token.');
-}
+/* Hidden admin shortcut */
+document.addEventListener('keydown', e=>{
+  if(e.ctrlKey && e.shiftKey && e.key.toLowerCase()==='a'){
+    window.location.href='/admin.html';
+  }
+});
 
 /* ===== Wallet & Withdraw ===== */
 async function loadWallet(){
   const uid=document.getElementById('uid').value||'guest';
-  const r=await apiFetch('/api/wallet/'+encodeURIComponent(uid));
+  const r=await fetch('/api/wallet/'+encodeURIComponent(uid));
   const j=await r.json();
   const f=(n)=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
   document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
@@ -213,88 +150,48 @@ async function reqWithdraw(){
   const email=document.getElementById('w_email').value.trim();
   const amount_usd=Number(document.getElementById('w_amount').value||0);
   if(!email||!amount_usd){document.getElementById('wout').textContent='Enter email and amount.';return;}
-  const r=await apiFetch('/api/withdraw/request',{method:'POST',body:JSON.stringify({user_id,email,amount_usd})});
+  const r=await fetch('/api/withdraw/request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id,email,amount_usd})});
   const j=await r.json();
-  document.getElementById('wout').textContent=j.ok?('Request '+(j.status||'sent')+' ✅'):'Error: '+(j.error||'failed');
+  document.getElementById('wout').textContent=j.ok?'Request sent ✅':'Error: '+(j.error||'failed');
 }
 
 /* ===== PayPal Buttons (deposit) ===== */
-function renderPayPalButtons(){
-  const uidInput = document.getElementById('uid');
-  paypal.Buttons({
-    createOrder: async () => {
-      const user_id = uidInput?.value || 'guest';
-      const amount_usd = prompt('Deposit amount (USD):','5.00');
-      const r = await apiFetch('/api/paypal/deposit/create',{method:'POST',body:JSON.stringify({ user_id, amount_usd: Number(amount_usd||0) })});
-      const j = await r.json(); return j.id;
-    },
-    onApprove: async (data) => {
-      const user_id = uidInput?.value || 'guest';
-      const r = await apiFetch('/api/paypal/deposit/capture',{method:'POST',body:JSON.stringify({ user_id, order_id: data.orderID })});
-      const j = await r.json(); alert('Deposit captured: $'+(j.captured_usd||0)); loadWallet();
-    },
-    onError: (err)=>{ console.error(err); alert('Payment error.'); }
-  }).render('#paypal-buttons');
-}
+(async () => {
+  try {
+    const cfg = await fetch('/api/config/public').then(r => r.json());
+    if (!cfg.PAYPAL_CLIENT_ID) return;
+    const s = document.createElement('script');
+    s.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(cfg.PAYPAL_CLIENT_ID) + '&currency=USD&intent=capture&enable-funding=card';
+    s.onload = () => {
+      const uidInput = document.getElementById('uid');
+      paypal.Buttons({
+        createOrder: async () => {
+          const user_id = uidInput?.value || 'guest';
+          const amount_usd = prompt('Deposit amount (USD):','5.00');
+          const r = await fetch('/api/paypal/deposit/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ user_id, amount_usd: Number(amount_usd||0) })});
+          const j = await r.json(); return j.id;
+        },
+        onApprove: async (data) => {
+          const user_id = uidInput?.value || 'guest';
+          const r = await fetch('/api/paypal/deposit/capture',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ user_id, order_id: data.orderID })});
+          const j = await r.json(); alert('Deposit captured: $'+(j.captured_usd||0));
+        },
+        onError: (err)=>{ console.error(err); alert('Payment error.'); }
+      }).render('#paypal-buttons');
+    };
+    document.head.appendChild(s);
+  } catch(e){ console.error(e); }
+})();
 
 /* ===== WhatsApp Send ===== */
 async function sendWhatsApp(){
   const to = document.getElementById('wa_to').value.trim();
   const text = document.getElementById('wa_text').value.trim();
   if(!to || !text){ document.getElementById('wa_out').textContent='Enter phone and message.'; return; }
-  const r = await apiFetch('/api/whatsapp/send',{method:'POST',body:JSON.stringify({ to, text })});
+  const r = await fetch('/api/whatsapp/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to, text })});
   const j = await r.json();
   document.getElementById('wa_out').textContent = j.ok ? 'Message sent ✅' : ('Error: ' + (j.error||'failed'));
 }
-
-/* ===== X (Twitter) Embed ===== */
-async function loadTweet(){
-  const url=document.getElementById('twurl').value.trim();
-  if(!url){ document.getElementById('twbox').innerHTML='<span class="muted">Paste a Tweet URL.</span>'; return; }
-  const r=await fetch('/api/twitter/oembed?'+new URLSearchParams({url}));
-  const j=await r.json();
-  document.getElementById('twbox').innerHTML=j.html||'<span class="muted">Failed.</span>';
-  // load widgets.js once
-  if(!document.getElementById('tw-wjs')){
-    const s=document.createElement('script'); s.id='tw-wjs'; s.src='https://platform.twitter.com/widgets.js';
-    document.body.appendChild(s);
-  }
-}
-
-/* ===== Instagram Embed ===== */
-async function loadIG(){
-  const url=document.getElementById('igurl').value.trim();
-  if(!url){ document.getElementById('igbox').innerHTML='<span class="muted">Paste an Instagram URL.</span>'; return; }
-  const r=await fetch('/api/instagram/oembed?'+new URLSearchParams({url}));
-  const j=await r.json();
-  if(j.error){ document.getElementById('igbox').innerHTML='<span class="muted">Server missing IG oEmbed token.</span>'; return; }
-  document.getElementById('igbox').innerHTML=j.html||'<span class="muted">Failed.</span>';
-  if(!document.getElementById('ig-wjs')){
-    const s=document.createElement('script'); s.id='ig-wjs'; s.src='https://www.instagram.com/embed.js';
-    document.body.appendChild(s);
-  }
-}
-
-/* ===== Radio: scan + play ===== */
-async function scanStations(){
-  const sel=document.getElementById('station'); const audio=document.getElementById('player');
-  document.getElementById('radio_msg').textContent='Scanning…';
-  sel.innerHTML='';
-  try{
-    const r=await fetch('/api/radio/scan'); const j=await r.json();
-    const items=j.items||[];
-    if(!items.length){ document.getElementById('radio_msg').textContent='No stations reachable. Try again later.'; return; }
-    items.forEach(s=>{ const o=document.createElement('option'); o.value=s.url; o.textContent=s.name; sel.appendChild(o); });
-    sel.onchange=()=>{ audio.src=sel.value; audio.play().catch(()=>{}); };
-    if(items[0]){ sel.value=items[0].url; sel.onchange(); }
-    document.getElementById('radio_msg').textContent='Ready. Enjoy!';
-  }catch(e){
-    console.error(e);
-    document.getElementById('radio_msg').textContent='Scan failed.';
-  }
-}
-// auto-scan on load
-scanStations();
 
 /* ===== YouTube Feed ===== */
 (async () => {
@@ -304,7 +201,7 @@ scanStations();
     const items=data.items||[];
     if(!items.length){ document.getElementById('yt-note').textContent='No videos found (check API key/channel).'; return; }
     grid.innerHTML = items.map(i=>{
-      const id = (i.id && (i.id.videoId||i.id.playlistId||i.id.channelId)) || '';
+      const id = i.id.videoId || i.id.playlistId || i.id.channelId || '';
       const sn = i.snippet||{};
       const thumb = (sn.thumbnails?.medium?.url)|| (sn.thumbnails?.high?.url)||'';
       const title = sn.title||'';
@@ -350,7 +247,28 @@ function renderQuiz(){
     box.appendChild(b);
   });
 }
+
+/* ===== Radio ===== */
+async function searchRadio(){
+  const q = document.getElementById('radio_q').value.trim() || 'kenya';
+  const out = document.getElementById('radio_results');
+  out.innerHTML = 'Searching...';
+  try{
+    const r = await fetch('/api/radio/search?q='+encodeURIComponent(q));
+    const j = await r.json();
+    if(!j.items || !j.items.length){ out.innerHTML = '<div class="muted">No stations found.</div>'; return; }
+    out.innerHTML = j.items.map(s => `
+      <div class="radio-item">
+        <div style="flex:1">
+          <div style="font-weight:700">${s.name}</div>
+          <div class="muted">${s.country||''} · ${s.codec||''} · ${s.bitrate||''}kbps</div>
+        </div>
+        <a href="${s.homepage||'#'}" target="_blank" class="muted" style="text-decoration:none">site</a>
+      </div>
+      <audio controls src="${s.url}"></audio>
+    `).join('');
+  }catch(e){ out.innerHTML = '<div class="muted">Error searching radio.</div>'; }
+}
 </script>
-<script src="/admin-shortcut.js"></script>
 </body>
 </html>

@@ -1,184 +1,126 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>EngageHubCoin Admin</title>
+  <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Admin • EngageHubCoin</title>
   <style>
-    body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#0f172a;color:#e5e7eb}
-    header{background:#1e1b4b;padding:14px 18px;font-weight:bold;letter-spacing:.5px}
-    main{max-width:1100px;margin:0 auto;padding:16px}
-    .card{background:#0b1220;border:1px solid #1f2937;border-radius:10px;padding:14px;margin-bottom:16px}
-    h2{margin-top:0}
-    input,button,select,textarea{padding:8px;border-radius:6px;border:1px solid #1f2937;background:#111827;color:#e5e7eb}
-    button{cursor:pointer;background:#FFD700;color:#111827;font-weight:bold}
-    table{width:100%;border-collapse:collapse;margin-top:8px}
-    th,td{border:1px solid #1f2937;padding:6px;font-size:14px;text-align:left;vertical-align:top}
-    th{background:#1e1b4b}
-    tr:nth-child(even){background:#111827}
-    .muted{font-size:12px;color:#9ca3af}
-    .row{display:flex;gap:8px;flex-wrap:wrap}
-    textarea{width:100%;min-height:36px;resize:vertical}
-    .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#222e5a;font-size:12px}
-    .ok{color:#22c55e} .err{color:#ef4444}
+    body{font-family:Inter,system-ui;background:#0b1220;color:#e5e7eb;margin:0;padding:16px}
+    .wrap{max-width:1100px;margin:0 auto}
+    .card{background:#0f172a;border:1px solid #1f2937;border-radius:12px;padding:16px;margin:12px 0}
+    input,button,select,textarea{padding:10px;border-radius:10px;border:1px solid #1f2937;background:#0b1220;color:#e5e7eb}
+    button.primary{background:#FFD700;color:#111827;border:none;font-weight:900;cursor:pointer}
+    table{width:100%;border-collapse:collapse}
+    th,td{border-bottom:1px solid #1f2937;padding:8px;text-align:left;vertical-align:top}
+    .muted{color:#9ca3af}
+    code{background:#111827;padding:2px 6px;border-radius:6px}
   </style>
 </head>
 <body>
-  <header>EngageHubCoin Admin Panel</header>
-  <main>
-    <!-- Admin Key -->
-    <div class="card">
-      <h2>Admin Access</h2>
-      <div class="row">
-        <input id="admin_key" type="password" placeholder="Enter admin secret key" style="flex:1"/>
-        <button onclick="testKey()">Test Key</button>
-      </div>
-      <div id="key_msg" class="muted">This key must match <code>ADMIN_SECRET</code> in your Render env vars.</div>
-    </div>
+<div class="wrap">
+  <h2>Admin</h2>
 
-    <!-- User Lookup -->
-    <div class="card">
-      <h2>User Lookup</h2>
-      <div class="row">
-        <input id="lookup_id" placeholder="User ID (e.g. guest, facebook:123)" style="flex:1"/>
-        <button onclick="lookupUser()">Lookup</button>
-      </div>
-      <pre id="lookup_out" style="white-space:pre-wrap;margin-top:8px"></pre>
+  <div class="card">
+    <h3>Lookup User</h3>
+    <div>
+      <input id="adm_key" placeholder="ADMIN_SECRET"/>
+      <input id="adm_uid" placeholder="user id e.g. facebook:123"/>
+      <button class="primary" onclick="lookup()">Fetch</button>
     </div>
+    <pre id="adm_out" class="muted" style="white-space:pre-wrap"></pre>
+  </div>
 
-    <!-- Withdraw Requests -->
-    <div class="card">
-      <h2>Pending Withdrawals</h2>
-      <div class="row">
-        <button onclick="loadWithdraws()">Refresh List</button>
-      </div>
-      <div id="withdraws"></div>
+  <div class="card">
+    <h3>Pending Withdraw Requests</h3>
+    <div>
+      <input id="adm_key2" placeholder="ADMIN_SECRET"/>
+      <button class="primary" onclick="listReqs()">Refresh</button>
     </div>
+    <div id="reqs"></div>
+  </div>
 
-    <!-- Data Buyers -->
-    <div class="card">
-      <h2>Data Buyers Registry</h2>
-      <div class="row">
-        <button onclick="loadBuyers()">Refresh Buyers</button>
-        <span class="muted">Edit status/notes and click Save.</span>
-      </div>
-      <div id="buyers"></div>
-      <div id="buyers_msg" class="muted"></div>
+  <div class="card">
+    <h3>Data Buyers (20 slots)</h3>
+    <div class="muted">Update <code>status</code> (planned | active | paused) and <code>notes</code>.</div>
+    <div>
+      <input id="adm_key3" placeholder="ADMIN_SECRET"/>
+      <button class="primary" onclick="loadBuyers()">Load</button>
     </div>
-  </main>
+    <div id="buyers"></div>
+  </div>
+
+  <div class="card">
+    <h3>Webhook Endpoints (copy to networks)</h3>
+    <div class="muted">Each provider hits a GET URL with your chosen params. You may add a <code>?secret=YOUR_SECRET</code> if configured.</div>
+    <ul>
+      <li>/webhooks/cpx</li><li>/webhooks/bitlabs</li><li>/webhooks/adgem</li><li>/webhooks/tapjoy</li>
+      <li>/webhooks/offertoro</li><li>/webhooks/persona.ly</li><li>/webhooks/ayet</li><li>/webhooks/kiwiwall</li>
+      <li>/webhooks/offerdaddy</li><li>/webhooks/wannads</li><li>/webhooks/clickdealer</li><li>/webhooks/adwork</li>
+      <li>/webhooks/maxbounty</li><li>/webhooks/cpalead</li><li>/webhooks/cj</li><li>/webhooks/rakuten</li>
+      <li>/webhooks/impact</li><li>/webhooks/flexoffers</li><li>/webhooks/adscend</li><li>/webhooks/revenueuniverse</li>
+      <li>/webhooks/adgate</li><li>/webhooks/adaction</li>
+    </ul>
+    <div class="muted">Typical params: <code>?user_id=USER&trans_id=UNIQUE&payout=1.25&secret=YOUR_SECRET</code></div>
+  </div>
+</div>
 
 <script>
-function adminKey(){ return document.getElementById('admin_key').value.trim(); }
-
-/* === Test key === */
-async function testKey(){
-  const key = adminKey();
-  if(!key){ setMsg('key_msg','Please enter an admin key.', true); return; }
-  const r = await fetch(`/api/admin/withdraw/requests?key=${encodeURIComponent(key)}`);
-  if(r.status===403){ setMsg('key_msg','Key rejected ❌', true); }
-  else if(r.ok){ setMsg('key_msg','Key accepted ✅', false); }
-  else { setMsg('key_msg','Key check failed.', true); }
+async function lookup(){
+  const key=document.getElementById('adm_key').value.trim();
+  const uid=document.getElementById('adm_uid').value.trim();
+  const r=await fetch('/api/admin/user/'+encodeURIComponent(uid)+'?key='+encodeURIComponent(key));
+  const j=await r.json(); document.getElementById('adm_out').textContent=JSON.stringify(j,null,2);
 }
-function setMsg(id, text, err=false){
-  const el = document.getElementById(id);
-  el.textContent = text;
-  el.className = 'muted ' + (err?'err':'ok');
-}
-
-/* === User Lookup === */
-async function lookupUser(){
-  const id=document.getElementById('lookup_id').value.trim();
-  if(!id){alert("Enter user id");return;}
-  const r=await fetch(`/api/admin/user/${encodeURIComponent(id)}?key=${encodeURIComponent(adminKey())}`);
+async function listReqs(){
+  const key=document.getElementById('adm_key2').value.trim();
+  const r=await fetch('/api/admin/withdraw/requests?key='+encodeURIComponent(key));
   const j=await r.json();
-  document.getElementById('lookup_out').textContent=JSON.stringify(j,null,2);
+  const box=document.getElementById('reqs');
+  box.innerHTML=(j.items||[]).map(it=>`
+    <div style="border:1px solid #1f2937;border-radius:10px;padding:8px;margin:6px 0">
+      <b>#${it.id}</b> · ${it.user_id} · $${it.amount.toFixed(2)} → ${it.email}
+      <div class="muted">status: ${it.status}</div>
+      <button onclick="pay(${it.id})" class="primary">Pay via PayPal</button>
+    </div>
+  `).join('') || '<div class="muted">None.</div>';
+}
+async function pay(id){
+  const key=document.getElementById('adm_key2').value.trim();
+  const r=await fetch('/api/admin/payouts/paypal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({admin_secret:key, request_id:id})});
+  const j=await r.json(); alert(j.ok?'Paid ✅':'Error: '+(j.error||'failed'));
+  listReqs();
 }
 
-/* === Withdraw Requests === */
-async function loadWithdraws(){
-  const r=await fetch(`/api/admin/withdraw/requests?key=${encodeURIComponent(adminKey())}`);
-  const j=await r.json();
-  const box=document.getElementById('withdraws'); box.innerHTML='';
-  if(!j.items?.length){box.innerHTML='<div class="muted">No pending requests.</div>';return;}
-  const table=document.createElement('table');
-  table.innerHTML='<tr><th>ID</th><th>User</th><th>Email</th><th>Amount</th><th>Action</th></tr>';
-  j.items.forEach(w=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${w.id}</td><td>${w.user_id}</td><td>${w.email}</td><td>$${Number(w.amount).toFixed(2)}</td>`;
-    const btn=document.createElement('button'); btn.textContent="Pay Now";
-    btn.onclick=()=>payWithdraw(w.id);
-    const td=document.createElement('td'); td.appendChild(btn); tr.appendChild(td);
-    table.appendChild(tr);
-  });
-  box.appendChild(table);
-}
-async function payWithdraw(id){
-  if(!confirm("Confirm payout for request #"+id+" ?")) return;
-  const r=await fetch('/api/admin/payouts/paypal',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({admin_secret:adminKey(),request_id:id})});
-  const j=await r.json(); alert(j.ok?"Payout sent ✅":"Error: "+(j.error||"failed"));
-  loadWithdraws();
-}
-
-/* === Data Buyers === */
+/* Data buyers */
 async function loadBuyers(){
-  const r=await fetch('/api/data-buyers');
-  const j=await r.json();
-  const box=document.getElementById('buyers'); box.innerHTML='';
-  if(!j.items?.length){ box.innerHTML='<div class="muted">No buyers found.</div>'; return;}
-  const table=document.createElement('table');
-  table.innerHTML='<tr><th>ID</th><th>Name</th><th>Homepage</th><th>Status</th><th>Notes</th><th>Save</th></tr>';
-  j.items.forEach(b=>{
-    const tr=document.createElement('tr');
-
-    const statusSel=document.createElement('select');
-    ['planned','active','paused'].forEach(s=>{
-      const o=document.createElement('option'); o.value=s; o.textContent=s;
-      if((b.status||'planned')===s) o.selected=true;
-      statusSel.appendChild(o);
-    });
-
-    const notesTa=document.createElement('textarea');
-    notesTa.value=b.notes || '';
-
-    const saveBtn=document.createElement('button');
-    saveBtn.textContent='Save';
-    saveBtn.onclick=()=>updateBuyer(b.id, statusSel.value, notesTa.value);
-
-    tr.innerHTML = `<td>${b.id}</td>
-                    <td>${escapeHtml(b.name)}</td>
-                    <td><a href="${b.homepage}" target="_blank" rel="noopener">${escapeHtml(b.homepage)}</a></td>`;
-    const tdStatus=document.createElement('td'); tdStatus.appendChild(statusSel);
-    const tdNotes=document.createElement('td'); tdNotes.appendChild(notesTa);
-    const tdSave=document.createElement('td'); tdSave.appendChild(saveBtn);
-
-    tr.appendChild(tdStatus); tr.appendChild(tdNotes); tr.appendChild(tdSave);
-    table.appendChild(tr);
-  });
-  box.appendChild(table);
+  const r=await fetch('/api/data-buyers'); const j=await r.json();
+  const box=document.getElementById('buyers');
+  box.innerHTML = `
+    <table>
+      <thead><tr><th>ID</th><th>Name</th><th>Homepage</th><th>Status</th><th>Notes</th><th>Save</th></tr></thead>
+      <tbody>
+      ${ (j.items||[]).map(b=>`
+        <tr>
+          <td>${b.id}</td>
+          <td>${b.name}</td>
+          <td><a href="${b.homepage}" target="_blank">${b.homepage}</a></td>
+          <td>
+            <select id="st_${b.id}">
+              ${["planned","active","paused"].map(s=>`<option ${s===b.status?"selected":""}>${s}</option>`).join('')}
+            </select>
+          </td>
+          <td><textarea id="nt_${b.id}" rows="2" style="width:100%">${b.notes||""}</textarea></td>
+          <td><button onclick="saveBuyer(${b.id})">Save</button></td>
+        </tr>
+      `).join('') }
+      </tbody>
+    </table>`;
 }
-async function updateBuyer(id, status, notes){
-  try{
-    const r=await fetch('/api/admin/data-buyers/update',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ admin_secret:adminKey(), id, status, notes })
-    });
-    const j=await r.json();
-    if(j.ok){ setBuyersMsg('Saved ✅'); loadBuyers(); }
-    else{ setBuyersMsg('Error: '+(j.error||'failed'), true); }
-  }catch(e){
-    setBuyersMsg('Network error', true);
-  }
-}
-function setBuyersMsg(t, err=false){
-  const el=document.getElementById('buyers_msg');
-  el.textContent=t; el.className='muted ' + (err?'err':'ok');
-}
-
-/* === Helpers === */
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+async function saveBuyer(id){
+  const key=document.getElementById('adm_key3').value.trim();
+  const status=document.getElementById('st_'+id).value;
+  const notes=document.getElementById('nt_'+id).value;
+  const r=await fetch('/api/admin/data-buyers/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({admin_secret:key,id,status,notes})});
+  const j=await r.json(); alert(j.ok?'Saved ✅':'Error');
 }
 </script>
 </body>
