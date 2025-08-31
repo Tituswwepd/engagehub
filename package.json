@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "EngageHubCoin – surveys, offerwalls, data buyers, PayPal deposits/payouts, WhatsApp, TikTok, Facebook, Instagram, X (Twitter), YouTube, AI quiz, JWT auth, password reset.",
+  "description": "EngageHubCoin – surveys, social integrations, PayPal deposits/payouts, WhatsApp, TikTok, Facebook, YouTube, AI quiz.",
   "scripts": {
     "start": "node backend/server.js"
   },
