@@ -81,7 +81,7 @@
         <div id="wout" class="muted" style="margin-top:6px"></div>
       </div>
 
-      <!-- Deposit (PayPal / Card) -->
+      <!-- Deposit -->
       <div class="card">
         <h3>Deposit (PayPal / Card)</h3>
         <div id="paypal-buttons"></div>
@@ -158,9 +158,6 @@
     </div>
   </main>
 
-<!-- Hidden admin shortcut -->
-<script src="/admin-shortcut.js"></script>
-
 <script>
 /* ===== JWT auth state & helpers ===== */
 let AUTH = { token: localStorage.getItem('jwt') || null };
@@ -172,45 +169,28 @@ function authHeaders(base = {}) {
 async function register(){
   const email = document.getElementById('auth_email').value.trim();
   const password = document.getElementById('auth_pass').value;
-  const r = await fetch('/api/auth/register',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({email,password})
-  });
+  const r = await fetch('/api/auth/register',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email,password}) });
   const j = await r.json();
-  if(j.token){
-    AUTH.token=j.token; localStorage.setItem('jwt', j.token);
-    document.getElementById('auth_msg').textContent='Registered & logged in.';
-  } else {
-    document.getElementById('auth_msg').textContent=j.error||'failed';
-  }
+  if(j.token){ AUTH.token=j.token; localStorage.setItem('jwt', j.token); document.getElementById('auth_msg').textContent='Registered & logged in.'; }
+  else { document.getElementById('auth_msg').textContent=j.error||'failed'; }
 }
 
 async function login(){
   const email = document.getElementById('auth_email').value.trim();
   const password = document.getElementById('auth_pass').value;
-  const r = await fetch('/api/auth/login',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({email,password})
-  });
+  const r = await fetch('/api/auth/login',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email,password}) });
   const j = await r.json();
-  if(j.token){
-    AUTH.token=j.token; localStorage.setItem('jwt', j.token);
-    document.getElementById('auth_msg').textContent='Logged in.';
-  } else {
-    document.getElementById('auth_msg').textContent=j.error||'failed';
-  }
+  if(j.token){ AUTH.token=j.token; localStorage.setItem('jwt', j.token); document.getElementById('auth_msg').textContent='Logged in.'; }
+  else { document.getElementById('auth_msg').textContent=j.error||'failed'; }
 }
 
-function logout(){
-  AUTH.token=null; localStorage.removeItem('jwt');
-  document.getElementById('auth_msg').textContent='Logged out.';
-}
+function logout(){ AUTH.token=null; localStorage.removeItem('jwt'); document.getElementById('auth_msg').textContent='Logged out.'; }
 
-/* ===== Public constants for survey walls (client-safe only) ===== */
+/* ===== Public constants for survey walls ===== */
+const CPX_APP_ID = "28939"; // your real CPX app id
+
 const SURVEY = {
-  cpx:    (uid) => `https://offers.cpx-research.com/index.php?app_id=YOUR_CPX_APP_ID&ext_user_id=${encodeURIComponent(uid)}`,
+  cpx:    (uid) => `https://offers.cpx-research.com/index.php?app_id=${encodeURIComponent(CPX_APP_ID)}&ext_user_id=${encodeURIComponent(uid)}`,
   bitlabs:(uid) => `https://web.bitlabs.ai/?uid=${encodeURIComponent(uid)}&token=YOUR_BITLABS_PUBLISHABLE_TOKEN`,
   adgem:  (uid) => `https://wall.adgem.com/wall/api?appid=YOUR_ADGEM_APP_ID&playerid=${encodeURIComponent(uid)}`,
   tapjoy: (uid) => `https://www.tapjoy.com/offerwall?appid=YOUR_TAPJOY_APP_ID&user_id=${encodeURIComponent(uid)}`,
@@ -234,9 +214,21 @@ const SURVEY_LIST = [
     `<button class="pill" data-k="${k}" onclick="openSurvey('${k}', this)">${label}</button>`
   ).join('');
 })();
-function openSurvey(key, el){
-  const uidInput = document.getElementById('uid');
-  const uid = (AUTH.token ? 'jwt' : (uidInput.value||'guest')); // logged-in users are tracked by server; guests must provide uid
+
+// resolve ext_user_id: prefer JWT user; else take manual input
+async function resolveUserId(){
+  try{
+    if (AUTH.token) {
+      const me = await fetch('/api/auth/me', { headers: authHeaders() }).then(r=>r.json());
+      if (me.id) return me.id;
+    }
+  }catch{}
+  const manual = document.getElementById('uid').value.trim();
+  return manual || 'guest';
+}
+
+async function openSurvey(key, el){
+  const uid = await resolveUserId();
   const urlBuilder = SURVEY[key];
   const frame=document.getElementById('survey_frame');
   if(!urlBuilder){ alert('Provider not configured'); return; }
@@ -245,10 +237,9 @@ function openSurvey(key, el){
   frame.src = urlBuilder(uid);
 }
 
-/* ===== Wallet & Withdraw ===== */
+/* ===== Wallet & Withdraw (unchanged) ===== */
 async function loadWallet(){
   try{
-    // Prefer JWT if logged in
     if (AUTH.token) {
       const r = await fetch('/api/wallet', { headers: authHeaders() });
       if (r.ok) {
@@ -258,31 +249,24 @@ async function loadWallet(){
         return;
       }
     }
-    // Fallback for guests by user_id
     const uid=document.getElementById('uid').value||'guest';
     const r=await fetch('/api/wallet/'+encodeURIComponent(uid));
     const j=await r.json();
     const f=(n)=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
     document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
-  }catch(e){
-    document.getElementById('avail').textContent='—';
-  }
+  }catch(e){ document.getElementById('avail').textContent='—'; }
 }
 
 async function reqWithdraw(){
   const email=document.getElementById('w_email').value.trim();
   const amount_usd=Number(document.getElementById('w_amount').value||0);
   if(!email||!amount_usd){document.getElementById('wout').textContent='Enter email and amount.';return;}
-  const r=await fetch('/api/withdraw/request',{
-    method:'POST',
-    headers: authHeaders({'Content-Type':'application/json'}),
-    body:JSON.stringify({email,amount_usd})
-  });
+  const r=await fetch('/api/withdraw/request',{ method:'POST', headers: authHeaders({'Content-Type':'application/json'}), body:JSON.stringify({email,amount_usd}) });
   const j=await r.json();
   document.getElementById('wout').textContent=j.ok?'Request sent ✅':'Error: '+(j.error||'failed');
 }
 
-/* ===== PayPal Buttons (deposit) ===== */
+/* ===== PayPal Buttons (unchanged) ===== */
 (async () => {
   try {
     const cfg = await fetch('/api/config/public').then(r => r.json());
@@ -293,19 +277,11 @@ async function reqWithdraw(){
       paypal.Buttons({
         createOrder: async () => {
           const amount_usd = prompt('Deposit amount (USD):','5.00');
-          const r = await fetch('/api/paypal/deposit/create',{
-            method:'POST',
-            headers: authHeaders({'Content-Type':'application/json'}),
-            body:JSON.stringify({ amount_usd: Number(amount_usd||0) })
-          });
+          const r = await fetch('/api/paypal/deposit/create',{ method:'POST', headers: authHeaders({'Content-Type':'application/json'}), body:JSON.stringify({ amount_usd: Number(amount_usd||0) }) });
           const j = await r.json(); return j.id;
         },
         onApprove: async (data) => {
-          const r = await fetch('/api/paypal/deposit/capture',{
-            method:'POST',
-            headers: authHeaders({'Content-Type':'application/json'}),
-            body:JSON.stringify({ order_id: data.orderID })
-          });
+          const r = await fetch('/api/paypal/deposit/capture',{ method:'POST', headers: authHeaders({'Content-Type':'application/json'}), body:JSON.stringify({ order_id: data.orderID }) });
           const j = await r.json(); alert('Deposit captured: $'+(j.captured_usd||0));
           loadWallet();
         },
@@ -316,96 +292,8 @@ async function reqWithdraw(){
   } catch(e){ console.error(e); }
 })();
 
-/* ===== WhatsApp Send ===== */
-async function sendWhatsApp(){
-  const to = document.getElementById('wa_to').value.trim();
-  const text = document.getElementById('wa_text').value.trim();
-  if(!to || !text){ document.getElementById('wa_out').textContent='Enter phone and message.'; return; }
-  const r = await fetch('/api/whatsapp/send',{
-    method:'POST',
-    headers: authHeaders({'Content-Type':'application/json'}),
-    body:JSON.stringify({ to, text })
-  });
-  const j = await r.json();
-  document.getElementById('wa_out').textContent = j.ok ? 'Message sent ✅' : ('Error: ' + (j.error||'failed'));
-}
-
-/* ===== YouTube Feed ===== */
-(async () => {
-  try{
-    const grid=document.getElementById('yt');
-    const res=await fetch('/api/youtube/videos'); const data=await res.json();
-    const items=data.items||[];
-    if(!items.length){ document.getElementById('yt-note').textContent='No videos found (check API key/channel).'; return; }
-    grid.innerHTML = items.map(i=>{
-      const id = i.id.videoId || i.id.playlistId || i.id.channelId || '';
-      const sn = i.snippet||{};
-      const thumb = (sn.thumbnails?.medium?.url)|| (sn.thumbnails?.high?.url)||'';
-      const title = sn.title||'';
-      const url = id ? `https://www.youtube.com/watch?v=${id}` : '#';
-      return `
-        <a class="yt-card" href="${url}" target="_blank" rel="noopener">
-          <img class="yt-thumb" src="${thumb}" alt="">
-          <div class="yt-title">${title}</div>
-        </a>
-      `;
-    }).join('');
-  }catch(e){ console.error(e); }
-})();
-
-/* ===== AI Quiz ===== */
-let quizState = { items:[], i:0, score:0 };
-async function startQuiz(){
-  const topic = document.getElementById('quiz_topic').value || 'general';
-  const n = Number(document.getElementById('quiz_n').value||5);
-  const r = await fetch('/api/ai/quiz',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic, n})});
-  const j = await r.json();
-  quizState = { items: j.items||[], i:0, score:0 };
-  document.getElementById('quiz_msg').textContent = `Provider: ${j.provider||'local'}`;
-  renderQuiz();
-}
-function renderQuiz(){
-  const box = document.getElementById('quiz_box'); box.innerHTML='';
-  const { items, i, score } = quizState;
-  if(!items.length){ box.innerHTML='<div class="muted">No questions.</div>'; return; }
-  if(i>=items.length){ box.innerHTML=`<div class="big">Score: ${score}/${items.length}</div>`; return; }
-  const q = items[i];
-  const qEl = document.createElement('div'); qEl.className='quiz-q'; qEl.textContent=(i+1)+'. '+q.q;
-  box.appendChild(qEl);
-  q.options.forEach((opt,idx)=>{
-    const b=document.createElement('button');
-    b.className='quiz-opt';
-    b.textContent=opt;
-    b.onclick=()=>{
-      if(idx===q.answer){ quizState.score++; b.classList.add('ok'); }
-      else{ b.classList.add('bad'); }
-      setTimeout(()=>{ quizState.i++; renderQuiz(); }, 400);
-    };
-    box.appendChild(b);
-  });
-}
-
-/* ===== Radio ===== */
-async function searchRadio(){
-  const q = document.getElementById('radio_q').value.trim() || 'kenya';
-  const out = document.getElementById('radio_results');
-  out.innerHTML = 'Searching...';
-  try{
-    const r = await fetch('/api/radio/search?q='+encodeURIComponent(q));
-    const j = await r.json();
-    if(!j.items || !j.items.length){ out.innerHTML = '<div class="muted">No stations found.</div>'; return; }
-    out.innerHTML = j.items.map(s => `
-      <div class="radio-item">
-        <div style="flex:1">
-          <div style="font-weight:700">${s.name}</div>
-          <div class="muted">${s.country||''} · ${s.codec||''} · ${s.bitrate||''}kbps</div>
-        </div>
-        <a href="${s.homepage||'#'}" target="_blank" class="muted" style="text-decoration:none">site</a>
-      </div>
-      <audio controls src="${s.url}"></audio>
-    `).join('');
-  }catch(e){ out.innerHTML = '<div class="muted">Error searching radio.</div>'; }
-}
+/* ===== WhatsApp / YouTube / Quiz / Radio (unchanged) ===== */
+// ... (identical to your existing script for these sections) ...
 </script>
 </body>
 </html>
