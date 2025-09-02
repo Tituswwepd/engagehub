@@ -33,24 +33,32 @@
   <style>
     /* ================= Base Theme ================= */
     :root{
-      --bg:#070b16; --bg2:#0b1230; --panel:#0b1222; --panel-2:#0e1730; --card:#0a1326;
-      --border:#203055; --muted:#94a3b8; --text:#e8eef7; --brand:#ffd94a; --brand-2:#60a5fa;
-      --accent:#7c3aed; --accent-2:#22c55e; --danger:#ef4444; --ok:#22c55e; --warn:#f59e0b;
+      --bg:#070b16; --bg2:#0b1230; --card:#0a1326;
+      --border:#203055; --muted:#94a3b8; --text:#e8eef7; --brand:#ffd94a;
       --shadow: 0 10px 30px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.03);
     }
     *{box-sizing:border-box}
     html,body{height:100%}
-    body{margin:0;background:radial-gradient(1200px 800px at 80% -10%, rgba(99,102,241,.18), transparent),
-                        radial-gradient(1000px 700px at -10% 20%, rgba(56,189,248,.18), transparent),
-                        linear-gradient(160deg,var(--bg2),var(--bg));
-         color:var(--text); font-family:Inter,system-ui,Segoe UI,Roboto,Ubuntu,Helvetica,Arial}
+    body{
+      margin:0;
+      background:
+        radial-gradient(1200px 800px at 80% -10%, rgba(99,102,241,.18), transparent),
+        radial-gradient(1000px 700px at -10% 20%, rgba(56,189,248,.18), transparent),
+        linear-gradient(160deg,var(--bg2),var(--bg));
+      color:var(--text);
+      font-family:Inter,system-ui,Segoe UI,Roboto,Ubuntu,Helvetica,Arial
+    }
     a{color:inherit}
     img{max-width:100%; display:block}
 
     /* ================= Layout Shell ================= */
     .app{display:grid; grid-template-columns:280px 1fr; grid-template-rows:72px 1fr; min-height:100svh}
-    header{grid-column:1/3; display:flex; align-items:center; gap:14px; padding:0 16px; border-bottom:1px solid var(--border);
-           background:linear-gradient(180deg, rgba(13,18,40,.7), rgba(9,12,26,.55)); backdrop-filter: blur(10px); position:sticky; top:0; z-index:60}
+    header{
+      grid-column:1/3; display:flex; align-items:center; gap:14px; padding:0 16px;
+      border-bottom:1px solid var(--border);
+      background:linear-gradient(180deg, rgba(13,18,40,.7), rgba(9,12,26,.55));
+      backdrop-filter: blur(10px); position:sticky; top:0; z-index:60
+    }
     header .brand{display:flex; align-items:center; gap:10px}
     header img{width:34px; height:34px; border-radius:10px; box-shadow: var(--shadow)}
     header .title{font-weight:900; letter-spacing:.2px}
@@ -59,17 +67,28 @@
     header .authchip{font-size:12px; padding:6px 10px; border-radius:999px; background:linear-gradient(90deg, rgba(124,58,237,.2), rgba(99,102,241,.15)); border:1px solid #2b2e66}
     .hamburger{display:none; padding:10px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--text)}
 
-    aside.sidebar{grid-row:2/3; grid-column:1/2; border-right:1px solid var(--border); background:linear-gradient(180deg, rgba(20,24,45,.8), rgba(10,14,28,.6)); backdrop-filter: blur(8px); z-index:55}
+    aside.sidebar{
+      grid-row:2/3; grid-column:1/2;
+      border-right:1px solid var(--border);
+      background:linear-gradient(180deg, rgba(20,24,45,.8), rgba(10,14,28,.6));
+      backdrop-filter: blur(8px); z-index:55
+    }
     main.main{grid-column:2/3; grid-row:2/3; padding:22px 18px 32px; max-width:1200px; margin:0 auto; width:100%}
 
     /* dim overlay for mobile nav */
     .overlay{display:none}
-    body.nav-open .overlay{display:block; position:fixed; inset:72px 0 0 0; background:rgba(5,8,16,.55); backdrop-filter: blur(2px); z-index:49}
+    body.nav-open .overlay{
+      display:block; position:fixed; inset:72px 0 0 0;
+      background:rgba(5,8,16,.55); backdrop-filter: blur(2px); z-index:49
+    }
 
     /* ================= Sidebar Nav ================= */
     nav.nav{display:flex; flex-direction:column; padding:14px}
     .nav h4{margin:10px 10px 8px; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.13em}
-    .nav a{display:flex; align-items:center; gap:10px; padding:12px 12px; margin:4px 0; border-radius:12px; text-decoration:none; color:#d7e5ff; border:1px solid transparent; position:relative}
+    .nav a{
+      display:flex; align-items:center; gap:10px; padding:12px 12px; margin:4px 0;
+      border-radius:12px; text-decoration:none; color:#d7e5ff; border:1px solid transparent; position:relative
+    }
     .nav a .dot{width:6px; height:6px; border-radius:999px; background:#6ee7b7; box-shadow:0 0 8px rgba(110,231,183,.8)}
     .nav a:hover{background:rgba(255,255,255,.045); border-color:var(--border)}
     .nav a.active{background:linear-gradient(90deg, rgba(99,102,241,.23), rgba(99,102,241,.06)); border-color:#2a2f66}
@@ -77,8 +96,17 @@
 
     /* ================= Utilities ================= */
     .grid{display:grid; grid-template-columns:repeat(12,1fr); gap:14px}
-    .card{background:linear-gradient(180deg, rgba(12,19,40,.9), rgba(10,17,34,.9)); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow: var(--shadow); position:relative}
-    .card:before{content:""; position:absolute; inset:-1px; border-radius:16px; padding:1px; background:linear-gradient(135deg, rgba(124,58,237,.55), rgba(34,197,94,.45), rgba(99,102,241,.55)); -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude; opacity:.08}
+    .card{
+      background:linear-gradient(180deg, rgba(12,19,40,.9), rgba(10,17,34,.9));
+      border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow: var(--shadow); position:relative
+    }
+    .card:before{
+      content:""; position:absolute; inset:-1px; border-radius:16px; padding:1px;
+      background:linear-gradient(135deg, rgba(124,58,237,.55), rgba(34,197,94,.45), rgba(99,102,241,.55));
+      -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite:xor; mask-composite:exclude; opacity:.08;
+      pointer-events:none; /* <-- critical: do not block clicks */
+    }
     .span-12{grid-column:span 12}
     .span-8{grid-column:span 8}
     .span-6{grid-column:span 6}
@@ -132,7 +160,7 @@
     .btn-x{background:#000; color:#fff; border:1px solid #222}
     .btn-wa{background:#25D366; color:#111}
 
-    /* ===== Mobile: off-canvas sidebar (fix for overlay blocking clicks) ===== */
+    /* ===== Mobile: off-canvas sidebar (kept hidden unless opened) ===== */
     @media (max-width: 1080px){
       .span-8,.span-6,.span-4{grid-column:span 12}
       .app{grid-template-columns:1fr}
@@ -140,8 +168,7 @@
       aside.sidebar{
         position:fixed;
         inset:72px 0 0 auto;
-        width:84vw;
-        max-width:360px;
+        width:84vw; max-width:360px;
         transform: translateX(-110%);      /* hidden by default */
         transition: transform .25s ease;
         z-index: 55;
@@ -414,8 +441,12 @@
   </main>
 </div>
 
-<!-- Hidden admin shortcut (Ctrl+Shift+A) -->
-<script src="/admin-shortcut.js"></script>
+<!-- Optional admin shortcut; ignore if missing -->
+<script>
+try{
+  const s=document.createElement('script'); s.src='/admin-shortcut.js'; s.defer=true; document.head.appendChild(s);
+}catch(e){}
+</script>
 
 <script>
 /* ===== SPA Navigation ===== */
@@ -429,23 +460,27 @@ function openSection(id){
   links.forEach(a=>a.classList.toggle('active', a.dataset.section===id));
   if(id==='wallet'){ ensurePayPalButtons(); }
   if(id==='media'){ loadYouTubeFull(); }
-  history.replaceState(null, '', '#'+id);
+  history.replaceState && history.replaceState(null, '', '#'+id);
 }
 window.addEventListener('hashchange',()=>openSection((location.hash||'#dashboard').slice(1)));
 openSection((location.hash||'#dashboard').slice(1));
 
-/* Mobile menu toggle + close-on-click (fix) */
+/* Mobile menu toggle + close-on-click */
 hamburger.addEventListener('click', ()=> document.body.classList.toggle('nav-open'));
 overlay.addEventListener('click', ()=> document.body.classList.remove('nav-open'));
-links.forEach(a => a.addEventListener('click', () => { document.body.classList.remove('nav-open'); openSection(a.dataset.section);})); 
+links.forEach(a => a.addEventListener('click', (e) => {
+  e.preventDefault();
+  document.body.classList.remove('nav-open');
+  openSection(a.dataset.section);
+}));
 
 /* ===== Auth state ===== */
 let AUTH = { token: localStorage.getItem('jwt') || null };
 function authHeaders(base = {}) { return AUTH.token ? { ...base, Authorization: 'Bearer ' + AUTH.token } : base; }
 function setAuthStatus(){
   const t = AUTH.token ? 'logged in' : 'guest';
-  document.getElementById('auth_status').textContent = t;
-  document.getElementById('kpi_auth').textContent = t === 'guest' ? 'Guest' : 'Member';
+  const el1=document.getElementById('auth_status'); if(el1) el1.textContent=t;
+  const el2=document.getElementById('kpi_auth'); if(el2) el2.textContent = t === 'guest' ? 'Guest' : 'Member';
 }
 setAuthStatus();
 
@@ -475,19 +510,19 @@ async function loadWallet(fromWalletTab=false){
       if (r.ok) {
         const j = await r.json(); const f=n=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
         (fromWalletTab?document.getElementById('avail2'):document.getElementById('avail')).textContent='$ '+f(j.available_to_withdraw_usd);
-        document.getElementById('kpi_avail').textContent='$ '+f(j.available_to_withdraw_usd);
+        const k=document.getElementById('kpi_avail'); if(k) k.textContent='$ '+f(j.available_to_withdraw_usd);
         if(fromWalletTab) document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
         return;
       }
     }
     const idEl = fromWalletTab? document.getElementById('uid2'): document.getElementById('uid');
-    const uid=idEl.value||'guest';
+    const uid=idEl?.value||'guest';
     const r=await fetch('/api/wallet/'+encodeURIComponent(uid));
     const j=await r.json(); const f=n=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
     (fromWalletTab?document.getElementById('avail2'):document.getElementById('avail')).textContent='$ '+f(j.available_to_withdraw_usd);
-    document.getElementById('kpi_avail').textContent='$ '+f(j.available_to_withdraw_usd);
+    const k=document.getElementById('kpi_avail'); if(k) k.textContent='$ '+f(j.available_to_withdraw_usd);
     if(fromWalletTab) document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
-  }catch(e){}
+  }catch(e){ console.warn('wallet error', e); }
 }
 async function reqWithdraw(){
   const email=document.getElementById('w_email').value.trim();
@@ -522,7 +557,7 @@ async function ensurePayPalButtons(){
       }).render('#paypal-buttons');
     };
     document.head.appendChild(s); paypalLoaded=true;
-  } catch(e){}
+  } catch(e){ console.warn('paypal init error', e); }
 }
 
 /* ===== WhatsApp ===== */
@@ -588,7 +623,7 @@ async function loadYouTubeFull(){
           <div class="yt-title">${title}</div>
         </a>`;
     }).join('');
-  }catch(e){}
+  }catch(e){ console.warn('youtube error', e); }
 }
 (async ()=>{ // dashboard single video
   try{
@@ -600,7 +635,7 @@ async function loadYouTubeFull(){
     const url = id ? `https://www.youtube.com/watch?v=${id}` : '#';
     spot.innerHTML = `<a class="yt-card" href="${url}" target="_blank" rel="noopener">
       <img class="yt-thumb" src="${thumb}" alt=""><div class="yt-title">${title}</div></a>`;
-  }catch(e){}
+  }catch(e){ console.warn('yt one error', e); }
 })();
 
 /* ===== Radio ===== */
@@ -658,7 +693,7 @@ function renderQuiz(){
 }
 
 /* ===== Mini Game (Reaction Tap) ===== */
-let gTimer=null,gLeft=0,gScore=0,gTime=15;
+let gTimer=null,gScore=0,gTime=15;
 function gameStart(){
   gameStop();
   gScore=0; gTime=15; document.getElementById('game_score').textContent=gScore; document.getElementById('game_time').textContent=gTime;
