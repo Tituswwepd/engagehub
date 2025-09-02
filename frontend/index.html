@@ -40,9 +40,10 @@
     }
     *{box-sizing:border-box}
     html,body{height:100%}
-    body{margin:0;background:radial-gradient(1200px 800px at 80% -10%, rgba(99,102,241,.18), transparent),
-                        radial-gradient(1000px 700px at -10% 20%, rgba(56,189,248,.18), transparent),
-                        linear-gradient(160deg,var(--bg2),var(--bg));
+    body{margin:0;background:
+        radial-gradient(1200px 800px at 80% -10%, rgba(99,102,241,.18), transparent),
+        radial-gradient(1000px 700px at -10% 20%, rgba(56,189,248,.18), transparent),
+        linear-gradient(160deg,var(--bg2),var(--bg));
          color:var(--text); font-family:Inter,system-ui,Segoe UI,Roboto,Ubuntu,Helvetica,Arial}
     a{color:inherit}
     img{max-width:100%; display:block}
@@ -79,7 +80,12 @@
     .span-8{grid-column:span 8}
     .span-6{grid-column:span 6}
     .span-4{grid-column:span 4}
-    @media (max-width: 1080px){ .span-8,.span-6,.span-4{grid-column:span 12} .app{grid-template-columns:1fr} aside.sidebar{position:fixed; inset:72px 0 0 auto; width:84vw; max-width:360px; transform: translateX(-4px)} .hamburger{display:inline-flex}}
+    @media (max-width: 1080px){
+      .span-8,.span-6,.span-4{grid-column:span 12}
+      .app{grid-template-columns:1fr}
+      aside.sidebar{position:fixed; inset:72px 0 0 auto; width:84vw; max-width:360px; transform: translateX(-4px)}
+      .hamburger{display:inline-flex}
+    }
 
     input,button,select,textarea{padding:12px; border-radius:12px; border:1px solid var(--border); background:#0b1430; color:var(--text)}
     input,select,textarea{width:100%}
@@ -172,7 +178,7 @@
       <div class="hero">
         <div class="left">
           <div class="headline">A modern, colorful, <span class="grad">digital hub</span> for surveys, social, wallet & tools.</div>
-          <div class="sub">Fast, installable, and organized — not everything in your face. Clean tabs, glass panels, and glow accents for a truly professional feel.</div>
+          <div class="sub">Fast, installable and organized with clean tabs, glass panels and glow accents.</div>
           <div class="row" style="margin-top:10px">
             <a class="btn glow" href="#surveys" data-section="surveys" onclick="openSection('surveys')">Start Surveys</a>
             <a class="btn primary" href="#wallet" data-section="wallet" onclick="openSection('wallet')">Go to Wallet</a>
@@ -209,7 +215,7 @@
         <div class="card span-4">
           <h3>Available to withdraw</h3>
           <div id="avail" class="big">—</div>
-          <div class="muted">If logged in, your account is used automatically. Guests can set a user id below.</div>
+          <div class="muted">Guests can set a temporary user id below.</div>
           <div class="row" style="margin-top:8px">
             <input id="uid" placeholder="guest user id (optional)"/>
             <button class="btn primary" onclick="loadWallet()">Refresh</button>
@@ -267,7 +273,7 @@
     <section id="surveys" class="section">
       <div class="card span-12">
         <h3>Surveys & Offers</h3>
-        <div class="muted" style="margin-bottom:6px">Pick a provider. Rewards track automatically when networks post back to our webhooks.</div>
+        <div class="muted" style="margin-bottom:6px">Pick a provider. Rewards track automatically via webhooks.</div>
         <div id="survey_pills" class="row" style="margin-bottom:8px"></div>
         <iframe id="survey_frame" class="survey" title="Survey Offerwall"></iframe>
         <div class="muted" style="margin-top:8px">Tip: Guests should set a <b>User ID</b> in Dashboard → Balance. Logged-in users are tracked by account.</div>
@@ -285,7 +291,6 @@
             <a class="btn btn-tt" href="/auth/tiktok">TikTok</a>
             <a class="btn btn-x"  href="/auth/twitter">X (Twitter)</a>
           </div>
-          <div class="muted" style="margin-top:6px">Use your accounts as usual through your browser. We don’t post on your behalf.</div>
         </div>
       </div>
     </section>
@@ -299,12 +304,11 @@
           <div class="row"><textarea id="wa_text2" rows="5" placeholder="Your message..."></textarea></div>
           <button class="btn btn-wa" onclick="sendWhatsApp(true)">Send</button>
           <div id="wa_out2" class="muted" style="margin-top:6px"></div>
-          <div class="muted" style="margin-top:10px">Requires WhatsApp Cloud API keys in your .env.</div>
         </div>
 
         <div class="card span-6">
           <h3>Notes</h3>
-          <p class="muted">You can integrate WhatsApp Business templates later for notifications and OTP flows.</p>
+          <p class="muted">Configure WhatsApp Cloud API in settings to enable messaging.</p>
         </div>
       </div>
     </section>
@@ -315,7 +319,7 @@
         <div class="card span-6">
           <h3>YouTube Channel</h3>
           <div id="yt" class="yt-grid"></div>
-          <div class="muted">Configure YOUTUBE_API_KEY + YOUTUBE_CHANNEL_ID to show videos.</div>
+          <div class="muted">Set YOUTUBE_API_KEY + YOUTUBE_CHANNEL_ID.</div>
         </div>
         <div class="card span-6">
           <h3>Radio</h3>
@@ -324,7 +328,7 @@
             <button class="btn primary" onclick="searchRadio()">Search</button>
           </div>
           <div id="radio_results" style="margin-top:8px"></div>
-          <div class="muted">Powered by the Radio Browser public directory.</div>
+          <div class="muted">Powered by Radio Browser directory.</div>
         </div>
       </div>
     </section>
@@ -347,8 +351,7 @@
     <section id="game" class="section">
       <div class="grid">
         <div class="card span-8">
-          <h3>Reaction Tap (for fun)</h3>
-          <p class="muted">No real payouts. Score resets to zero each game.</p>
+          <h3>Reaction Tap</h3>
           <div id="game_area" style="position:relative;height:320px;border:1px dashed var(--border);border-radius:14px;margin:10px 0;background:#0a1326"></div>
           <div class="row">
             <button class="btn glow" onclick="gameStart()">Start</button>
@@ -361,8 +364,8 @@
           <h3>How to play</h3>
           <ol class="muted">
             <li>Press <b>Start</b>.</li>
-            <li>Tap the moving target as many times as you can in 15s.</li>
-            <li>Score resets after each round. Have fun!</li>
+            <li>Tap the moving target as many times as you can in 15 seconds.</li>
+            <li>Score resets after each round.</li>
           </ol>
         </div>
       </div>
@@ -417,7 +420,7 @@ function authHeaders(base = {}) { return AUTH.token ? { ...base, Authorization: 
 function setAuthStatus(){
   const t = AUTH.token ? 'logged in' : 'guest';
   document.getElementById('auth_status').textContent = t;
-  document.getElementById('kpi_auth').textContent = t === 'guest' ? 'Guest' : 'Member';
+  const k = document.getElementById('kpi_auth'); if(k) k.textContent = t === 'guest' ? 'Guest' : 'Member';
 }
 setAuthStatus();
 
@@ -447,7 +450,7 @@ async function loadWallet(fromWalletTab=false){
       if (r.ok) {
         const j = await r.json(); const f=n=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
         (fromWalletTab?document.getElementById('avail2'):document.getElementById('avail')).textContent='$ '+f(j.available_to_withdraw_usd);
-        document.getElementById('kpi_avail').textContent='$ '+f(j.available_to_withdraw_usd);
+        const k=document.getElementById('kpi_avail'); if(k) k.textContent='$ '+f(j.available_to_withdraw_usd);
         if(fromWalletTab) document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
         return;
       }
@@ -457,7 +460,7 @@ async function loadWallet(fromWalletTab=false){
     const r=await fetch('/api/wallet/'+encodeURIComponent(uid));
     const j=await r.json(); const f=n=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
     (fromWalletTab?document.getElementById('avail2'):document.getElementById('avail')).textContent='$ '+f(j.available_to_withdraw_usd);
-    document.getElementById('kpi_avail').textContent='$ '+f(j.available_to_withdraw_usd);
+    const k=document.getElementById('kpi_avail'); if(k) k.textContent='$ '+f(j.available_to_withdraw_usd);
     if(fromWalletTab) document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
   }catch(e){}
 }
@@ -630,7 +633,7 @@ function renderQuiz(){
 }
 
 /* ===== Mini Game (Reaction Tap) ===== */
-let gTimer=null,gLeft=0,gScore=0,gTime=15;
+let gTimer=null,gScore=0,gTime=15;
 function gameStart(){
   gameStop();
   gScore=0; gTime=15; document.getElementById('game_score').textContent=gScore; document.getElementById('game_time').textContent=gTime;
@@ -661,6 +664,8 @@ async function forgot(){
 if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').catch(()=>{}); }
 document.getElementById('year').textContent = new Date().getFullYear();
 
+/* Expose functions globally for inline onclick="" */
+Object.assign(window, { openSection, register, login, logout, loadWallet, reqWithdraw, ensurePayPalButtons, sendWhatsApp, openSurvey, startQuiz, gameStart, gameStop, searchRadio });
 /* Initial pulls */
 loadWallet();
 </script>
