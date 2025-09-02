@@ -7,19 +7,19 @@
   <link rel="icon" href="/assets/icon.png" type="image/png"/>
 
   <!-- Meta / SEO -->
-  <link rel="canonical" href="https://engagehubcoin.onrender.com/" />
-  <meta name="description" content="EngageHubCoin — surveys, social connectors, wallet, and tools in one fast, installable web app." />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://engagehubcoin.onrender.com/" />
-  <meta property="og:title" content="EngageHubCoin" />
-  <meta property="og:description" content="Surveys, social connectors, wallet, and tools in one fast, installable web app." />
-  <meta property="og:image" content="https://engagehubcoin.onrender.com/assets/social-card.png" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="EngageHubCoin" />
-  <meta name="twitter:description" content="Surveys, social connectors, wallet, and tools in one fast, installable web app." />
-  <meta name="twitter:image" content="https://engagehubcoin.onrender.com/assets/social-card.png" />
-  <link rel="manifest" href="/manifest.webmanifest" />
-  <meta name="theme-color" content="#0b1020" />
+  <link rel="canonical" href="https://engagehubcoin.onrender.com/"/>
+  <meta name="description" content="EngageHubCoin — surveys, social connectors, wallet, and tools in one fast, installable web app."/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://engagehubcoin.onrender.com/"/>
+  <meta property="og:title" content="EngageHubCoin"/>
+  <meta property="og:description" content="Surveys, social connectors, wallet, and tools in one fast, installable web app."/>
+  <meta property="og:image" content="https://engagehubcoin.onrender.com/assets/social-card.png"/>
+  <meta name="twitter:card" content="summary_large_image"/>
+  <meta name="twitter:title" content="EngageHubCoin"/>
+  <meta name="twitter:description" content="Surveys, social connectors, wallet, and tools in one fast, installable web app."/>
+  <meta name="twitter:image" content="https://engagehubcoin.onrender.com/assets/social-card.png"/>
+  <link rel="manifest" href="/manifest.webmanifest"/>
+  <meta name="theme-color" content="#0b1020"/>
 
   <!-- Perf hints -->
   <link rel="preconnect" href="https://www.paypal.com"/>
@@ -40,10 +40,9 @@
     }
     *{box-sizing:border-box}
     html,body{height:100%}
-    body{margin:0;background:
-        radial-gradient(1200px 800px at 80% -10%, rgba(99,102,241,.18), transparent),
-        radial-gradient(1000px 700px at -10% 20%, rgba(56,189,248,.18), transparent),
-        linear-gradient(160deg,var(--bg2),var(--bg));
+    body{margin:0;background:radial-gradient(1200px 800px at 80% -10%, rgba(99,102,241,.18), transparent),
+                        radial-gradient(1000px 700px at -10% 20%, rgba(56,189,248,.18), transparent),
+                        linear-gradient(160deg,var(--bg2),var(--bg));
          color:var(--text); font-family:Inter,system-ui,Segoe UI,Roboto,Ubuntu,Helvetica,Arial}
     a{color:inherit}
     img{max-width:100%; display:block}
@@ -51,7 +50,7 @@
     /* ================= Layout Shell ================= */
     .app{display:grid; grid-template-columns:280px 1fr; grid-template-rows:72px 1fr; min-height:100svh}
     header{grid-column:1/3; display:flex; align-items:center; gap:14px; padding:0 16px; border-bottom:1px solid var(--border);
-           background:linear-gradient(180deg, rgba(13,18,40,.7), rgba(9,12,26,.55)); backdrop-filter: blur(10px); position:sticky; top:0; z-index:40}
+           background:linear-gradient(180deg, rgba(13,18,40,.7), rgba(9,12,26,.55)); backdrop-filter: blur(10px); position:sticky; top:0; z-index:60}
     header .brand{display:flex; align-items:center; gap:10px}
     header img{width:34px; height:34px; border-radius:10px; box-shadow: var(--shadow)}
     header .title{font-weight:900; letter-spacing:.2px}
@@ -60,8 +59,12 @@
     header .authchip{font-size:12px; padding:6px 10px; border-radius:999px; background:linear-gradient(90deg, rgba(124,58,237,.2), rgba(99,102,241,.15)); border:1px solid #2b2e66}
     .hamburger{display:none; padding:10px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--text)}
 
-    aside.sidebar{grid-row:2/3; grid-column:1/2; border-right:1px solid var(--border); background:linear-gradient(180deg, rgba(20,24,45,.8), rgba(10,14,28,.6)); backdrop-filter: blur(8px)}
+    aside.sidebar{grid-row:2/3; grid-column:1/2; border-right:1px solid var(--border); background:linear-gradient(180deg, rgba(20,24,45,.8), rgba(10,14,28,.6)); backdrop-filter: blur(8px); z-index:55}
     main.main{grid-column:2/3; grid-row:2/3; padding:22px 18px 32px; max-width:1200px; margin:0 auto; width:100%}
+
+    /* dim overlay for mobile nav */
+    .overlay{display:none}
+    body.nav-open .overlay{display:block; position:fixed; inset:72px 0 0 0; background:rgba(5,8,16,.55); backdrop-filter: blur(2px); z-index:49}
 
     /* ================= Sidebar Nav ================= */
     nav.nav{display:flex; flex-direction:column; padding:14px}
@@ -80,12 +83,6 @@
     .span-8{grid-column:span 8}
     .span-6{grid-column:span 6}
     .span-4{grid-column:span 4}
-    @media (max-width: 1080px){
-      .span-8,.span-6,.span-4{grid-column:span 12}
-      .app{grid-template-columns:1fr}
-      aside.sidebar{position:fixed; inset:72px 0 0 auto; width:84vw; max-width:360px; transform: translateX(-4px)}
-      .hamburger{display:inline-flex}
-    }
 
     input,button,select,textarea{padding:12px; border-radius:12px; border:1px solid var(--border); background:#0b1430; color:var(--text)}
     input,select,textarea{width:100%}
@@ -134,6 +131,28 @@
     .btn-tt{background:#000; color:#fff; border:1px solid #222}
     .btn-x{background:#000; color:#fff; border:1px solid #222}
     .btn-wa{background:#25D366; color:#111}
+
+    /* ===== Mobile: off-canvas sidebar (fix for overlay blocking clicks) ===== */
+    @media (max-width: 1080px){
+      .span-8,.span-6,.span-4{grid-column:span 12}
+      .app{grid-template-columns:1fr}
+
+      aside.sidebar{
+        position:fixed;
+        inset:72px 0 0 auto;
+        width:84vw;
+        max-width:360px;
+        transform: translateX(-110%);      /* hidden by default */
+        transition: transform .25s ease;
+        z-index: 55;
+        pointer-events: none;               /* don't block page when hidden */
+      }
+      body.nav-open aside.sidebar{
+        transform: translateX(0);
+        pointer-events: auto;
+      }
+      .hamburger{display:inline-flex}
+    }
   </style>
 </head>
 <body>
@@ -144,9 +163,12 @@
       <div class="title">EngageHubCoin <span class="badge">PWA</span></div>
     </div>
     <div class="spacer"></div>
-    <button aria-label="Toggle menu" class="hamburger" onclick="document.body.classList.toggle('nav-open')">☰</button>
+    <button aria-label="Toggle menu" class="hamburger" id="hamburger">☰</button>
     <div class="authchip" id="auth_status">guest</div>
   </header>
+
+  <!-- Tap-to-close overlay for mobile nav -->
+  <div class="overlay" id="overlay"></div>
 
   <!-- Sidebar -->
   <aside class="sidebar">
@@ -178,7 +200,7 @@
       <div class="hero">
         <div class="left">
           <div class="headline">A modern, colorful, <span class="grad">digital hub</span> for surveys, social, wallet & tools.</div>
-          <div class="sub">Fast, installable and organized with clean tabs, glass panels and glow accents.</div>
+          <div class="sub">Fast, installable, and organized with clean tabs, glass panels and soft glow accents.</div>
           <div class="row" style="margin-top:10px">
             <a class="btn glow" href="#surveys" data-section="surveys" onclick="openSection('surveys')">Start Surveys</a>
             <a class="btn primary" href="#wallet" data-section="wallet" onclick="openSection('wallet')">Go to Wallet</a>
@@ -215,7 +237,6 @@
         <div class="card span-4">
           <h3>Available to withdraw</h3>
           <div id="avail" class="big">—</div>
-          <div class="muted">Guests can set a temporary user id below.</div>
           <div class="row" style="margin-top:8px">
             <input id="uid" placeholder="guest user id (optional)"/>
             <button class="btn primary" onclick="loadWallet()">Refresh</button>
@@ -246,7 +267,6 @@
         <div class="card span-6">
           <h3>Balance</h3>
           <div id="avail2" class="big">—</div>
-          <div class="muted">Withdrawable updates as surveys are approved.</div>
           <div class="row" style="margin-top:8px">
             <input id="uid2" placeholder="guest user id (optional)"/>
             <button class="btn primary" onclick="loadWallet(true)">Refresh</button>
@@ -273,10 +293,8 @@
     <section id="surveys" class="section">
       <div class="card span-12">
         <h3>Surveys & Offers</h3>
-        <div class="muted" style="margin-bottom:6px">Pick a provider. Rewards track automatically via webhooks.</div>
         <div id="survey_pills" class="row" style="margin-bottom:8px"></div>
         <iframe id="survey_frame" class="survey" title="Survey Offerwall"></iframe>
-        <div class="muted" style="margin-top:8px">Tip: Guests should set a <b>User ID</b> in Dashboard → Balance. Logged-in users are tracked by account.</div>
       </div>
     </section>
 
@@ -308,7 +326,7 @@
 
         <div class="card span-6">
           <h3>Notes</h3>
-          <p class="muted">Configure WhatsApp Cloud API in settings to enable messaging.</p>
+          <p class="muted">Configure credentials in Settings if required.</p>
         </div>
       </div>
     </section>
@@ -319,7 +337,7 @@
         <div class="card span-6">
           <h3>YouTube Channel</h3>
           <div id="yt" class="yt-grid"></div>
-          <div class="muted">Set YOUTUBE_API_KEY + YOUTUBE_CHANNEL_ID.</div>
+          <div class="muted">Configure YOUTUBE_API_KEY + YOUTUBE_CHANNEL_ID.</div>
         </div>
         <div class="card span-6">
           <h3>Radio</h3>
@@ -328,7 +346,6 @@
             <button class="btn primary" onclick="searchRadio()">Search</button>
           </div>
           <div id="radio_results" style="margin-top:8px"></div>
-          <div class="muted">Powered by Radio Browser directory.</div>
         </div>
       </div>
     </section>
@@ -363,9 +380,9 @@
         <div class="card span-4">
           <h3>How to play</h3>
           <ol class="muted">
-            <li>Press <b>Start</b>.</li>
-            <li>Tap the moving target as many times as you can in 15 seconds.</li>
-            <li>Score resets after each round.</li>
+            <li>Press <b>Start</b></li>
+            <li>Tap the moving target as many times as you can in 15s</li>
+            <li>Score resets after each round</li>
           </ol>
         </div>
       </div>
@@ -392,7 +409,7 @@
     </section>
 
     <footer>
-      <div class="muted">© <span id="year"></span> EngageHubCoin — Built for speed, clarity & growth.</div>
+      <div class="muted">© <span id="year"></span> EngageHubCoin</div>
     </footer>
   </main>
 </div>
@@ -404,6 +421,9 @@
 /* ===== SPA Navigation ===== */
 const sections=[...document.querySelectorAll('.section')];
 const links=[...document.querySelectorAll('.nav a')];
+const hamburger = document.getElementById('hamburger');
+const overlay = document.getElementById('overlay');
+
 function openSection(id){
   sections.forEach(s=>s.classList.toggle('active', s.id===id));
   links.forEach(a=>a.classList.toggle('active', a.dataset.section===id));
@@ -414,13 +434,18 @@ function openSection(id){
 window.addEventListener('hashchange',()=>openSection((location.hash||'#dashboard').slice(1)));
 openSection((location.hash||'#dashboard').slice(1));
 
+/* Mobile menu toggle + close-on-click (fix) */
+hamburger.addEventListener('click', ()=> document.body.classList.toggle('nav-open'));
+overlay.addEventListener('click', ()=> document.body.classList.remove('nav-open'));
+links.forEach(a => a.addEventListener('click', () => { document.body.classList.remove('nav-open'); openSection(a.dataset.section);})); 
+
 /* ===== Auth state ===== */
 let AUTH = { token: localStorage.getItem('jwt') || null };
 function authHeaders(base = {}) { return AUTH.token ? { ...base, Authorization: 'Bearer ' + AUTH.token } : base; }
 function setAuthStatus(){
   const t = AUTH.token ? 'logged in' : 'guest';
   document.getElementById('auth_status').textContent = t;
-  const k = document.getElementById('kpi_auth'); if(k) k.textContent = t === 'guest' ? 'Guest' : 'Member';
+  document.getElementById('kpi_auth').textContent = t === 'guest' ? 'Guest' : 'Member';
 }
 setAuthStatus();
 
@@ -450,7 +475,7 @@ async function loadWallet(fromWalletTab=false){
       if (r.ok) {
         const j = await r.json(); const f=n=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
         (fromWalletTab?document.getElementById('avail2'):document.getElementById('avail')).textContent='$ '+f(j.available_to_withdraw_usd);
-        const k=document.getElementById('kpi_avail'); if(k) k.textContent='$ '+f(j.available_to_withdraw_usd);
+        document.getElementById('kpi_avail').textContent='$ '+f(j.available_to_withdraw_usd);
         if(fromWalletTab) document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
         return;
       }
@@ -460,7 +485,7 @@ async function loadWallet(fromWalletTab=false){
     const r=await fetch('/api/wallet/'+encodeURIComponent(uid));
     const j=await r.json(); const f=n=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
     (fromWalletTab?document.getElementById('avail2'):document.getElementById('avail')).textContent='$ '+f(j.available_to_withdraw_usd);
-    const k=document.getElementById('kpi_avail'); if(k) k.textContent='$ '+f(j.available_to_withdraw_usd);
+    document.getElementById('kpi_avail').textContent='$ '+f(j.available_to_withdraw_usd);
     if(fromWalletTab) document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
   }catch(e){}
 }
@@ -633,7 +658,7 @@ function renderQuiz(){
 }
 
 /* ===== Mini Game (Reaction Tap) ===== */
-let gTimer=null,gScore=0,gTime=15;
+let gTimer=null,gLeft=0,gScore=0,gTime=15;
 function gameStart(){
   gameStop();
   gScore=0; gTime=15; document.getElementById('game_score').textContent=gScore; document.getElementById('game_time').textContent=gTime;
@@ -664,8 +689,6 @@ async function forgot(){
 if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').catch(()=>{}); }
 document.getElementById('year').textContent = new Date().getFullYear();
 
-/* Expose functions globally for inline onclick="" */
-Object.assign(window, { openSection, register, login, logout, loadWallet, reqWithdraw, ensurePayPalButtons, sendWhatsApp, openSurvey, startQuiz, gameStart, gameStop, searchRadio });
 /* Initial pulls */
 loadWallet();
 </script>
