@@ -1,196 +1,515 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>EngageHubCoin</title>
   <link rel="icon" href="/assets/icon.png" type="image/png"/>
+
+  <!-- Meta / SEO -->
+  <link rel="canonical" href="https://engagehubcoin.onrender.com/" />
+  <meta name="description" content="EngageHubCoin — surveys, social connectors, wallet, and tools in one fast, installable web app." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://engagehubcoin.onrender.com/" />
+  <meta property="og:title" content="EngageHubCoin" />
+  <meta property="og:description" content="Surveys, social connectors, wallet, and tools in one fast, installable web app." />
+  <meta property="og:image" content="https://engagehubcoin.onrender.com/assets/social-card.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="EngageHubCoin" />
+  <meta name="twitter:description" content="Surveys, social connectors, wallet, and tools in one fast, installable web app." />
+  <meta name="twitter:image" content="https://engagehubcoin.onrender.com/assets/social-card.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#0b1020" />
+
+  <!-- Perf hints -->
+  <link rel="preconnect" href="https://www.paypal.com"/>
+  <link rel="preconnect" href="https://www.youtube.com"/>
+  <link rel="preconnect" href="https://i.ytimg.com"/>
+  <link rel="preconnect" href="https://de1.api.radio-browser.info"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+
   <style>
+    /* ================= Base Theme ================= */
     :root{
-      --bg1:#0f172a; --bg2:#1e1b4b; --bg3:#4f46e5;
-      --card:#0b1220; --border:#1f2937; --text:#e5e7eb; --muted:#9ca3af; --brand:#FFD700;
-      --fb:#1877F2; --tt:#000000; --yt:#FF0000; --wa:#25D366; --x:#000; --ig:#E1306C;
+      --bg:#070b16; --bg2:#0b1230; --panel:#0b1222; --panel-2:#0e1730; --card:#0a1326;
+      --border:#203055; --muted:#94a3b8; --text:#e8eef7; --brand:#ffd94a; --brand-2:#60a5fa;
+      --accent:#7c3aed; --accent-2:#22c55e; --danger:#ef4444; --ok:#22c55e; --warn:#f59e0b;
+      --shadow: 0 10px 30px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.03);
     }
     *{box-sizing:border-box}
-    body{margin:0;background:linear-gradient(135deg,var(--bg1),var(--bg2) 40%,var(--bg3));color:var(--text);font-family:Inter,system-ui}
-    header{position:sticky;top:0;background:rgba(17,24,39,.75);backdrop-filter:blur(8px);padding:14px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);z-index:10}
-    header img{width:28px;height:28px;border-radius:50%}
-    header b{font-size:16px;letter-spacing:.3px}
-    main{max-width:1100px;margin:0 auto;padding:16px}
-    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
-    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px}
-    input,button,select,textarea{padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text)}
-    button.primary{background:var(--brand);color:#111827;border:none;font-weight:900;cursor:pointer}
-    .big{font-size:28px;font-weight:900;color:var(--brand);text-shadow:0 0 12px rgba(255,215,0,.25)}
-    .muted{color:var(--muted);font-size:12px}
-    .row{display:flex;gap:8px;flex-wrap:wrap}
-    a.btn{display:inline-block;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:900}
-    .btn-fb{background:var(--fb);color:#fff}
-    .btn-tt{background:var(--tt);color:#fff;border:1px solid #222}
-    .btn-x{background:var(--x);color:#fff;border:1px solid #222}
-    .btn-ig{background:var(--ig);color:#fff}
-    .btn-wa{background:var(--wa);color:#111}
-    .yt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
-    .yt-card{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#0a1020}
-    .yt-thumb{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}
-    .yt-title{padding:8px;font-size:13px;line-height:1.2}
-    .quiz-q{margin:8px 0 6px;font-weight:700}
-    .quiz-opt{display:block;margin:6px 0;padding:8px;border:1px solid var(--border);border-radius:10px;background:#0b1220;cursor:pointer}
-    .ok{color:#22c55e}.bad{color:#ef4444}
-    .radio-item{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--border);border-radius:10px;margin:6px 0}
+    html,body{height:100%}
+    body{margin:0;background:radial-gradient(1200px 800px at 80% -10%, rgba(99,102,241,.18), transparent),
+                        radial-gradient(1000px 700px at -10% 20%, rgba(56,189,248,.18), transparent),
+                        linear-gradient(160deg,var(--bg2),var(--bg));
+         color:var(--text); font-family:Inter,system-ui,Segoe UI,Roboto,Ubuntu,Helvetica,Arial}
+    a{color:inherit}
+    img{max-width:100%; display:block}
+
+    /* ================= Layout Shell ================= */
+    .app{display:grid; grid-template-columns:280px 1fr; grid-template-rows:72px 1fr; min-height:100svh}
+    header{grid-column:1/3; display:flex; align-items:center; gap:14px; padding:0 16px; border-bottom:1px solid var(--border);
+           background:linear-gradient(180deg, rgba(13,18,40,.7), rgba(9,12,26,.55)); backdrop-filter: blur(10px); position:sticky; top:0; z-index:40}
+    header .brand{display:flex; align-items:center; gap:10px}
+    header img{width:34px; height:34px; border-radius:10px; box-shadow: var(--shadow)}
+    header .title{font-weight:900; letter-spacing:.2px}
+    header .badge{margin-left:8px; font-size:12px; padding:4px 8px; border:1px solid var(--border); border-radius:999px; color:var(--muted)}
+    header .spacer{flex:1}
+    header .authchip{font-size:12px; padding:6px 10px; border-radius:999px; background:linear-gradient(90deg, rgba(124,58,237,.2), rgba(99,102,241,.15)); border:1px solid #2b2e66}
+    .hamburger{display:none; padding:10px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--text)}
+
+    aside.sidebar{grid-row:2/3; grid-column:1/2; border-right:1px solid var(--border); background:linear-gradient(180deg, rgba(20,24,45,.8), rgba(10,14,28,.6)); backdrop-filter: blur(8px)}
+    main.main{grid-column:2/3; grid-row:2/3; padding:22px 18px 32px; max-width:1200px; margin:0 auto; width:100%}
+
+    /* ================= Sidebar Nav ================= */
+    nav.nav{display:flex; flex-direction:column; padding:14px}
+    .nav h4{margin:10px 10px 8px; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.13em}
+    .nav a{display:flex; align-items:center; gap:10px; padding:12px 12px; margin:4px 0; border-radius:12px; text-decoration:none; color:#d7e5ff; border:1px solid transparent; position:relative}
+    .nav a .dot{width:6px; height:6px; border-radius:999px; background:#6ee7b7; box-shadow:0 0 8px rgba(110,231,183,.8)}
+    .nav a:hover{background:rgba(255,255,255,.045); border-color:var(--border)}
+    .nav a.active{background:linear-gradient(90deg, rgba(99,102,241,.23), rgba(99,102,241,.06)); border-color:#2a2f66}
+    .badge{background:#121a33; color:var(--muted); font-size:11px; padding:2px 6px; border-radius:999px; border:1px solid var(--border); margin-left:auto}
+
+    /* ================= Utilities ================= */
+    .grid{display:grid; grid-template-columns:repeat(12,1fr); gap:14px}
+    .card{background:linear-gradient(180deg, rgba(12,19,40,.9), rgba(10,17,34,.9)); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow: var(--shadow); position:relative}
+    .card:before{content:""; position:absolute; inset:-1px; border-radius:16px; padding:1px; background:linear-gradient(135deg, rgba(124,58,237,.55), rgba(34,197,94,.45), rgba(99,102,241,.55)); -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude; opacity:.08}
+    .span-12{grid-column:span 12}
+    .span-8{grid-column:span 8}
+    .span-6{grid-column:span 6}
+    .span-4{grid-column:span 4}
+    @media (max-width: 1080px){ .span-8,.span-6,.span-4{grid-column:span 12} .app{grid-template-columns:1fr} aside.sidebar{position:fixed; inset:72px 0 0 auto; width:84vw; max-width:360px; transform: translateX(-4px)} .hamburger{display:inline-flex}}
+
+    input,button,select,textarea{padding:12px; border-radius:12px; border:1px solid var(--border); background:#0b1430; color:var(--text)}
+    input,select,textarea{width:100%}
+    textarea{resize:vertical}
+    .row{display:flex; gap:10px; flex-wrap:wrap}
+    .row > *{flex:1}
+    .btn{cursor:pointer; user-select:none}
+    .btn.primary{background:linear-gradient(135deg,#ffd94a,#fcd34d); color:#0b1020; border:none; font-weight:900; box-shadow:0 10px 30px rgba(252,211,77,.25)}
+    .btn.ghost{background:transparent; border-color:var(--border); color:var(--muted)}
+    .btn.glow{background:linear-gradient(135deg,#8b5cf6,#6366f1); color:#fff; border:none; font-weight:800; box-shadow:0 10px 30px rgba(99,102,241,.35)}
+    .muted{color:var(--muted); font-size:12px}
+    .big{font-size:28px; font-weight:900; color:var(--brand); text-shadow:0 0 12px rgba(255,215,0,.25)}
+    .kpi{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+    .kpi .box{padding:12px; background:linear-gradient(180deg, rgba(18,24,55,.8), rgba(11,17,35,.8)); border:1px solid var(--border); border-radius:14px}
+
+    /* ================= Sections ================= */
+    .section{display:none; animation:fade .25s ease}
+    .section.active{display:block}
+    @keyframes fade{from{opacity:.4; transform:translateY(2px)} to{opacity:1; transform:none}}
+
+    /* ================= Special blocks ================= */
+    .yt-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px}
+    .yt-card{border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#0a1020}
+    .yt-thumb{width:100%; aspect-ratio:16/9; object-fit:cover; display:block}
+    .yt-title{padding:10px; font-size:13px; line-height:1.25}
+    .pill{padding:8px 12px; border:1px solid var(--border); border-radius:999px; cursor:pointer; background:#0b1430; font-weight:600}
+    .pill.active{background:#111b3a; border-color:#2a3757}
+    iframe.survey{width:100%; height:60svh; border:1px solid var(--border); border-radius:14px; background:#000}
+    .radio-item{display:flex; align-items:center; gap:8px; padding:10px; border:1px solid var(--border); border-radius:12px; margin:6px 0}
     audio{width:100%}
-    .pill{padding:6px 10px;border:1px solid var(--border);border-radius:999px;cursor:pointer;background:#0a1020}
-    .pill.active{background:#111a30;border-color:#2a3757}
-    iframe.survey{width:100%;height:520px;border:1px solid var(--border);border-radius:12px;background:#000}
+
+    /* ================= Hero ================= */
+    .hero{display:flex; flex-wrap:wrap; gap:14px; align-items:center}
+    .hero .left{flex: 1 1 420px}
+    .hero .right{flex: 1 1 320px}
+    .headline{font-size:32px; font-weight:900; line-height:1.15}
+    .headline .grad{background:linear-gradient(90deg,#a78bfa,#60a5fa,#22c55e); -webkit-background-clip:text; background-clip:text; color:transparent}
+    .sub{color:var(--muted); margin-top:6px}
+
+    /* ================= Footer ================= */
+    footer{margin:22px 0 0; padding:18px 0; color:var(--muted); font-size:12px; border-top:1px solid var(--border)}
+
+    /* Social brand buttons */
+    .btn-fb{background:#1877F2; color:#fff}
+    .btn-ig{background:#E1306C; color:#fff}
+    .btn-tt{background:#000; color:#fff; border:1px solid #222}
+    .btn-x{background:#000; color:#fff; border:1px solid #222}
+    .btn-wa{background:#25D366; color:#111}
   </style>
 </head>
 <body>
-  <header><img src="/assets/icon.png" alt="logo"/><b>EngageHubCoin</b></header>
+<div class="app">
+  <header>
+    <div class="brand">
+      <img src="/assets/icon.png" alt="EngageHubCoin logo"/>
+      <div class="title">EngageHubCoin <span class="badge">PWA</span></div>
+    </div>
+    <div class="spacer"></div>
+    <button aria-label="Toggle menu" class="hamburger" onclick="document.body.classList.toggle('nav-open')">☰</button>
+    <div class="authchip" id="auth_status">guest</div>
+  </header>
 
-  <main>
-    <div class="grid">
-      <!-- Auth -->
-      <div class="card" style="grid-column:1/-1">
-        <h3>Login / Register</h3>
-        <div class="row">
-          <input id="auth_email" placeholder="email" />
-          <input id="auth_pass" type="password" placeholder="password" />
-          <button class="primary" onclick="register()">Register</button>
-          <button class="primary" onclick="login()">Login</button>
-          <button onclick="logout()">Logout</button>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <nav class="nav">
+      <h4>Overview</h4>
+      <a href="#dashboard" data-section="dashboard" class="active"><span class="dot"></span> Dashboard</a>
+      <a href="#wallet" data-section="wallet"><span class="dot" style="background:#fcd34d"></span> Wallet</a>
+      <a href="#surveys" data-section="surveys"><span class="dot" style="background:#38bdf8"></span> Surveys</a>
+
+      <h4>Channels</h4>
+      <a href="#social" data-section="social"><span class="dot" style="background:#60a5fa"></span> Social</a>
+      <a href="#messaging" data-section="messaging"><span class="dot" style="background:#22c55e"></span> Messaging <span class="badge">WhatsApp</span></a>
+      <a href="#media" data-section="media"><span class="dot" style="background:#a78bfa"></span> Media <span class="badge">YouTube + Radio</span></a>
+
+      <h4>Engage</h4>
+      <a href="#quiz" data-section="quiz"><span class="dot" style="background:#fde047"></span> AI Quiz</a>
+      <a href="#game" data-section="game"><span class="dot" style="background:#f472b6"></span> Mini Game</a>
+
+      <h4>Account</h4>
+      <a href="#settings" data-section="settings"><span class="dot" style="background:#94a3b8"></span> Settings</a>
+    </nav>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+
+    <!-- HERO / DASHBOARD TOP -->
+    <section class="card span-12" style="margin-bottom:14px">
+      <div class="hero">
+        <div class="left">
+          <div class="headline">A modern, colorful, <span class="grad">digital hub</span> for surveys, social, wallet & tools.</div>
+          <div class="sub">Fast, installable, and organized — not everything in your face. Clean tabs, glass panels, and glow accents for a truly professional feel.</div>
+          <div class="row" style="margin-top:10px">
+            <a class="btn glow" href="#surveys" data-section="surveys" onclick="openSection('surveys')">Start Surveys</a>
+            <a class="btn primary" href="#wallet" data-section="wallet" onclick="openSection('wallet')">Go to Wallet</a>
+            <button class="btn ghost" onclick="loadWallet()">Refresh Balance</button>
+          </div>
         </div>
-        <div class="muted" id="auth_msg"></div>
-      </div>
-
-      <!-- Wallet -->
-      <div class="card">
-        <h3>Available to withdraw</h3>
-        <div id="avail" class="big">—</div>
-        <div class="row">
-          <input id="uid" placeholder="your user id (only for guests)"/>
-          <button class="primary" onclick="loadWallet()">Refresh</button>
+        <div class="right">
+          <div class="kpi">
+            <div class="box"><div class="muted">Available</div><div id="kpi_avail" class="big">—</div></div>
+            <div class="box"><div class="muted">Surveys</div><div class="big" style="color:#60a5fa">Live</div></div>
+            <div class="box"><div class="muted">Status</div><div id="kpi_auth" class="big" style="color:#22c55e">Guest</div></div>
+          </div>
         </div>
-        <div class="muted">If logged in, your JWT account is used automatically. Guests can type a user id.</div>
       </div>
+    </section>
 
-      <!-- Withdraw Request -->
-      <div class="card">
-        <h3>Request Withdrawal</h3>
-        <div class="row"><input id="w_email" placeholder="PayPal email" style="flex:1"/></div>
-        <div class="row"><input id="w_amount" placeholder="Amount (USD)" style="flex:1"/></div>
-        <button class="primary" onclick="reqWithdraw()">Send request</button>
-        <div id="wout" class="muted" style="margin-top:6px"></div>
-      </div>
-
-      <!-- Deposit -->
-      <div class="card">
-        <h3>Deposit (PayPal / Card)</h3>
-        <div id="paypal-buttons"></div>
-        <div class="muted">Top up with PayPal balance or credit/debit card.</div>
-      </div>
-
-      <!-- Social Connects -->
-      <div class="card">
-        <h3>Connect Accounts</h3>
-        <div class="row">
-          <a class="btn btn-fb" href="/auth/facebook">Facebook</a>
-          <a class="btn btn-ig" href="/auth/instagram">Instagram</a>
-          <a class="btn btn-tt" href="/auth/tiktok">TikTok</a>
-          <a class="btn btn-x" href="/auth/twitter">X (Twitter)</a>
+    <!-- DASHBOARD -->
+    <section id="dashboard" class="section active">
+      <div class="grid">
+        <!-- Auth -->
+        <div class="card span-12">
+          <h3>Login / Register</h3>
+          <div class="row">
+            <input id="auth_email" placeholder="email"/>
+            <input id="auth_pass" type="password" placeholder="password"/>
+            <button class="btn glow" onclick="register()">Register</button>
+            <button class="btn glow" onclick="login()">Login</button>
+            <button class="btn ghost" onclick="logout()">Logout</button>
+          </div>
+          <div class="muted" id="auth_msg"></div>
         </div>
-        <div class="muted">Use these to personalize your experience and unlock more actions.</div>
-      </div>
 
-      <!-- WhatsApp -->
-      <div class="card">
-        <h3>WhatsApp</h3>
-        <div class="row">
-          <input id="wa_to" placeholder="Phone with country code e.g. 2547XXXXXXXX" style="flex:1"/>
+        <!-- Quick Wallet -->
+        <div class="card span-4">
+          <h3>Available to withdraw</h3>
+          <div id="avail" class="big">—</div>
+          <div class="muted">If logged in, your account is used automatically. Guests can set a user id below.</div>
+          <div class="row" style="margin-top:8px">
+            <input id="uid" placeholder="guest user id (optional)"/>
+            <button class="btn primary" onclick="loadWallet()">Refresh</button>
+          </div>
         </div>
-        <div class="row">
-          <textarea id="wa_text" rows="3" placeholder="Your message..." style="flex:1"></textarea>
+
+        <!-- Quick WhatsApp -->
+        <div class="card span-4">
+          <h3>WhatsApp Quick Send</h3>
+          <div class="row"><input id="wa_to" placeholder="2547XXXXXXXX"></div>
+          <div class="row"><textarea id="wa_text" rows="3" placeholder="Your message..."></textarea></div>
+          <button class="btn btn-wa" onclick="sendWhatsApp()">Send</button>
+          <div class="muted" id="wa_out" style="margin-top:6px"></div>
         </div>
-        <button class="btn btn-wa" onclick="sendWhatsApp()">Send WhatsApp Message</button>
-        <div id="wa_out" class="muted" style="margin-top:6px"></div>
-      </div>
 
-      <!-- YouTube Feed -->
-      <div class="card">
-        <h3>Latest Videos</h3>
-        <div id="yt" class="yt-grid"></div>
-        <div id="yt-note" class="muted">Shows from your configured channel if a YouTube API key & channel are set.</div>
+        <!-- Latest Videos -->
+        <div class="card span-4">
+          <h3>Latest Video</h3>
+          <div id="yt_one" class="yt-grid"></div>
+          <div class="muted">More in Media → YouTube</div>
+        </div>
       </div>
+    </section>
 
-      <!-- AI Quiz -->
-      <div class="card">
+    <!-- WALLET -->
+    <section id="wallet" class="section">
+      <div class="grid">
+        <div class="card span-6">
+          <h3>Balance</h3>
+          <div id="avail2" class="big">—</div>
+          <div class="muted">Withdrawable updates as surveys are approved.</div>
+          <div class="row" style="margin-top:8px">
+            <input id="uid2" placeholder="guest user id (optional)"/>
+            <button class="btn primary" onclick="loadWallet(true)">Refresh</button>
+          </div>
+        </div>
+
+        <div class="card span-6">
+          <h3>Request Withdrawal</h3>
+          <div class="row"><input id="w_email" placeholder="PayPal email"/></div>
+          <div class="row"><input id="w_amount" placeholder="Amount (USD)"/></div>
+          <button class="btn glow" onclick="reqWithdraw()">Send request</button>
+          <div id="wout" class="muted" style="margin-top:6px"></div>
+        </div>
+
+        <div class="card span-12">
+          <h3>Deposit (PayPal / Card)</h3>
+          <div id="paypal-buttons"></div>
+          <div class="muted">Top up with PayPal balance or credit/debit card.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SURVEYS -->
+    <section id="surveys" class="section">
+      <div class="card span-12">
+        <h3>Surveys & Offers</h3>
+        <div class="muted" style="margin-bottom:6px">Pick a provider. Rewards track automatically when networks post back to our webhooks.</div>
+        <div id="survey_pills" class="row" style="margin-bottom:8px"></div>
+        <iframe id="survey_frame" class="survey" title="Survey Offerwall"></iframe>
+        <div class="muted" style="margin-top:8px">Tip: Guests should set a <b>User ID</b> in Dashboard → Balance. Logged-in users are tracked by account.</div>
+      </div>
+    </section>
+
+    <!-- SOCIAL -->
+    <section id="social" class="section">
+      <div class="grid">
+        <div class="card span-12">
+          <h3>Connect Social Accounts</h3>
+          <div class="row">
+            <a class="btn btn-fb" href="/auth/facebook">Facebook</a>
+            <a class="btn btn-ig" href="/auth/instagram">Instagram</a>
+            <a class="btn btn-tt" href="/auth/tiktok">TikTok</a>
+            <a class="btn btn-x"  href="/auth/twitter">X (Twitter)</a>
+          </div>
+          <div class="muted" style="margin-top:6px">Use your accounts as usual through your browser. We don’t post on your behalf.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MESSAGING -->
+    <section id="messaging" class="section">
+      <div class="grid">
+        <div class="card span-6">
+          <h3>WhatsApp</h3>
+          <div class="row"><input id="wa_to2" placeholder="Phone e.g. 2547XXXXXXXX"/></div>
+          <div class="row"><textarea id="wa_text2" rows="5" placeholder="Your message..."></textarea></div>
+          <button class="btn btn-wa" onclick="sendWhatsApp(true)">Send</button>
+          <div id="wa_out2" class="muted" style="margin-top:6px"></div>
+          <div class="muted" style="margin-top:10px">Requires WhatsApp Cloud API keys in your .env.</div>
+        </div>
+
+        <div class="card span-6">
+          <h3>Notes</h3>
+          <p class="muted">You can integrate WhatsApp Business templates later for notifications and OTP flows.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- MEDIA -->
+    <section id="media" class="section">
+      <div class="grid">
+        <div class="card span-6">
+          <h3>YouTube Channel</h3>
+          <div id="yt" class="yt-grid"></div>
+          <div class="muted">Configure YOUTUBE_API_KEY + YOUTUBE_CHANNEL_ID to show videos.</div>
+        </div>
+        <div class="card span-6">
+          <h3>Radio</h3>
+          <div class="row">
+            <input id="radio_q" placeholder="Search stations e.g. kenya, sports, gospel"/>
+            <button class="btn primary" onclick="searchRadio()">Search</button>
+          </div>
+          <div id="radio_results" style="margin-top:8px"></div>
+          <div class="muted">Powered by the Radio Browser public directory.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUIZ -->
+    <section id="quiz" class="section">
+      <div class="card span-12">
         <h3>AI Quiz</h3>
         <div class="row">
           <input id="quiz_topic" placeholder="topic e.g. general, tech, Kenya"/>
           <select id="quiz_n"><option>5</option><option>7</option><option>10</option></select>
-          <button class="primary" onclick="startQuiz()">Start</button>
+          <button class="btn glow" onclick="startQuiz()">Start</button>
         </div>
         <div id="quiz_box" style="margin-top:8px"></div>
         <div id="quiz_msg" class="muted"></div>
       </div>
+    </section>
 
-      <!-- Radio -->
-      <div class="card">
-        <h3>Radio</h3>
-        <div class="row">
-          <input id="radio_q" placeholder="Search stations e.g. kenya, sports, gospel" style="flex:1"/>
-          <button class="primary" onclick="searchRadio()">Search</button>
+    <!-- GAME -->
+    <section id="game" class="section">
+      <div class="grid">
+        <div class="card span-8">
+          <h3>Reaction Tap (for fun)</h3>
+          <p class="muted">No real payouts. Score resets to zero each game.</p>
+          <div id="game_area" style="position:relative;height:320px;border:1px dashed var(--border);border-radius:14px;margin:10px 0;background:#0a1326"></div>
+          <div class="row">
+            <button class="btn glow" onclick="gameStart()">Start</button>
+            <button class="btn ghost" onclick="gameStop()">Stop</button>
+            <div class="badge">Score: <span id="game_score">0</span></div>
+            <div class="badge">Time: <span id="game_time">15</span>s</div>
+          </div>
         </div>
-        <div id="radio_results" style="margin-top:8px"></div>
-        <div class="muted">Powered by the public Radio Browser directory.</div>
+        <div class="card span-4">
+          <h3>How to play</h3>
+          <ol class="muted">
+            <li>Press <b>Start</b>.</li>
+            <li>Tap the moving target as many times as you can in 15s.</li>
+            <li>Score resets after each round. Have fun!</li>
+          </ol>
+        </div>
       </div>
+    </section>
 
-      <!-- Surveys & Offers -->
-      <div class="card" style="grid-column:1/-1">
-        <h3>Surveys & Offers</h3>
-        <div class="muted" style="margin-bottom:6px">
-          Pick a provider below. Rewards track automatically when networks post back to our webhooks.
+    <!-- SETTINGS -->
+    <section id="settings" class="section">
+      <div class="grid">
+        <div class="card span-6">
+          <h3>Account</h3>
+          <div class="row">
+            <input id="set_email" placeholder="email for password reset"/>
+          </div>
+          <div class="row">
+            <button class="btn glow" onclick="forgot()">Send Reset Link</button>
+          </div>
+          <div class="muted" id="set_msg"></div>
         </div>
-        <div id="survey_pills" class="row" style="margin-bottom:8px"></div>
-        <iframe id="survey_frame" class="survey"></iframe>
-        <div class="muted" style="margin-top:8px">
-          Tip: Guests: enter a <b>User ID</b> above so credit links back to your wallet. Logged-in users don’t need it.
+        <div class="card span-6">
+          <h3>About</h3>
+          <p class="muted">EngageHubCoin bundles surveys, wallet, and social connectors into a fast, installable PWA.</p>
         </div>
       </div>
-    </div>
+    </section>
+
+    <footer>
+      <div class="muted">© <span id="year"></span> EngageHubCoin — Built for speed, clarity & growth.</div>
+    </footer>
   </main>
+</div>
+
+<!-- Hidden admin shortcut (Ctrl+Shift+A) -->
+<script src="/admin-shortcut.js"></script>
 
 <script>
-/* ===== JWT auth state & helpers ===== */
-let AUTH = { token: localStorage.getItem('jwt') || null };
-
-function authHeaders(base = {}) {
-  return AUTH.token ? { ...base, Authorization: 'Bearer ' + AUTH.token } : base;
+/* ===== SPA Navigation ===== */
+const sections=[...document.querySelectorAll('.section')];
+const links=[...document.querySelectorAll('.nav a')];
+function openSection(id){
+  sections.forEach(s=>s.classList.toggle('active', s.id===id));
+  links.forEach(a=>a.classList.toggle('active', a.dataset.section===id));
+  if(id==='wallet'){ ensurePayPalButtons(); }
+  if(id==='media'){ loadYouTubeFull(); }
+  history.replaceState(null, '', '#'+id);
 }
+window.addEventListener('hashchange',()=>openSection((location.hash||'#dashboard').slice(1)));
+openSection((location.hash||'#dashboard').slice(1));
+
+/* ===== Auth state ===== */
+let AUTH = { token: localStorage.getItem('jwt') || null };
+function authHeaders(base = {}) { return AUTH.token ? { ...base, Authorization: 'Bearer ' + AUTH.token } : base; }
+function setAuthStatus(){
+  const t = AUTH.token ? 'logged in' : 'guest';
+  document.getElementById('auth_status').textContent = t;
+  document.getElementById('kpi_auth').textContent = t === 'guest' ? 'Guest' : 'Member';
+}
+setAuthStatus();
 
 async function register(){
   const email = document.getElementById('auth_email').value.trim();
   const password = document.getElementById('auth_pass').value;
-  const r = await fetch('/api/auth/register',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email,password}) });
+  const r = await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
   const j = await r.json();
-  if(j.token){ AUTH.token=j.token; localStorage.setItem('jwt', j.token); document.getElementById('auth_msg').textContent='Registered & logged in.'; }
-  else { document.getElementById('auth_msg').textContent=j.error||'failed'; }
+  if(j.token){ AUTH.token=j.token; localStorage.setItem('jwt', j.token); document.getElementById('auth_msg').textContent='Registered & logged in.'; setAuthStatus(); loadWallet(); }
+  else document.getElementById('auth_msg').textContent = j.error||'failed';
 }
-
 async function login(){
   const email = document.getElementById('auth_email').value.trim();
   const password = document.getElementById('auth_pass').value;
-  const r = await fetch('/api/auth/login',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email,password}) });
+  const r = await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
   const j = await r.json();
-  if(j.token){ AUTH.token=j.token; localStorage.setItem('jwt', j.token); document.getElementById('auth_msg').textContent='Logged in.'; }
-  else { document.getElementById('auth_msg').textContent=j.error||'failed'; }
+  if(j.token){ AUTH.token=j.token; localStorage.setItem('jwt', j.token); document.getElementById('auth_msg').textContent='Logged in.'; setAuthStatus(); loadWallet(); }
+  else document.getElementById('auth_msg').textContent = j.error||'failed';
+}
+function logout(){ AUTH.token=null; localStorage.removeItem('jwt'); document.getElementById('auth_msg').textContent='Logged out.'; setAuthStatus(); }
+
+/* ===== Wallet ===== */
+async function loadWallet(fromWalletTab=false){
+  try{
+    if (AUTH.token) {
+      const r = await fetch('/api/wallet', { headers: authHeaders() });
+      if (r.ok) {
+        const j = await r.json(); const f=n=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
+        (fromWalletTab?document.getElementById('avail2'):document.getElementById('avail')).textContent='$ '+f(j.available_to_withdraw_usd);
+        document.getElementById('kpi_avail').textContent='$ '+f(j.available_to_withdraw_usd);
+        if(fromWalletTab) document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
+        return;
+      }
+    }
+    const idEl = fromWalletTab? document.getElementById('uid2'): document.getElementById('uid');
+    const uid=idEl.value||'guest';
+    const r=await fetch('/api/wallet/'+encodeURIComponent(uid));
+    const j=await r.json(); const f=n=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
+    (fromWalletTab?document.getElementById('avail2'):document.getElementById('avail')).textContent='$ '+f(j.available_to_withdraw_usd);
+    document.getElementById('kpi_avail').textContent='$ '+f(j.available_to_withdraw_usd);
+    if(fromWalletTab) document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
+  }catch(e){}
+}
+async function reqWithdraw(){
+  const email=document.getElementById('w_email').value.trim();
+  const amount_usd=Number(document.getElementById('w_amount').value||0);
+  if(!email||!amount_usd){document.getElementById('wout').textContent='Enter email and amount.';return;}
+  const r=await fetch('/api/withdraw/request',{method:'POST',headers: authHeaders({'Content-Type':'application/json'}),body:JSON.stringify({email,amount_usd})});
+  const j=await r.json();
+  document.getElementById('wout').textContent=j.ok?'Request sent ✅':'Error: '+(j.error||'failed');
 }
 
-function logout(){ AUTH.token=null; localStorage.removeItem('jwt'); document.getElementById('auth_msg').textContent='Logged out.'; }
+/* ===== PayPal (lazy load) ===== */
+let paypalLoaded=false;
+async function ensurePayPalButtons(){
+  if(paypalLoaded) return;
+  try {
+    const cfg = await fetch('/api/config/public').then(r => r.json());
+    if (!cfg.PAYPAL_CLIENT_ID) return;
+    const s = document.createElement('script');
+    s.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(cfg.PAYPAL_CLIENT_ID) + '&currency=USD&intent=capture&enable-funding=card';
+    s.onload = () => {
+      paypal.Buttons({
+        createOrder: async () => {
+          const amount_usd = prompt('Deposit amount (USD):','5.00');
+          const r = await fetch('/api/paypal/deposit/create',{method:'POST',headers: authHeaders({'Content-Type':'application/json'}),body:JSON.stringify({ amount_usd: Number(amount_usd||0) })});
+          const j = await r.json(); return j.id;
+        },
+        onApprove: async (data) => {
+          const r = await fetch('/api/paypal/deposit/capture',{method:'POST',headers: authHeaders({'Content-Type':'application/json'}),body:JSON.stringify({ order_id: data.orderID })});
+          const j = await r.json(); alert('Deposit captured: $'+(j.captured_usd||0)); loadWallet(true);
+        },
+        onError: ()=> alert('Payment error.')
+      }).render('#paypal-buttons');
+    };
+    document.head.appendChild(s); paypalLoaded=true;
+  } catch(e){}
+}
 
-/* ===== Public constants for survey walls ===== */
-const CPX_APP_ID = "28939"; // your real CPX app id
+/* ===== WhatsApp ===== */
+async function sendWhatsApp(useSecondary=false){
+  const to = document.getElementById(useSecondary?'wa_to2':'wa_to').value.trim();
+  const text = document.getElementById(useSecondary?'wa_text2':'wa_text').value.trim();
+  const out = document.getElementById(useSecondary?'wa_out2':'wa_out');
+  if(!to || !text){ out.textContent='Enter phone and message.'; return; }
+  const r = await fetch('/api/whatsapp/send',{method:'POST',headers: authHeaders({'Content-Type':'application/json'}),body:JSON.stringify({ to, text })});
+  const j = await r.json(); out.textContent = j.ok ? 'Message sent ✅' : ('Error: ' + (j.error||'failed'));
+}
 
+/* ===== Surveys ===== */
 const SURVEY = {
-  cpx:    (uid) => `https://offers.cpx-research.com/index.php?app_id=${encodeURIComponent(CPX_APP_ID)}&ext_user_id=${encodeURIComponent(uid)}`,
+  cpx:    (uid) => `https://offers.cpx-research.com/index.php?app_id=YOUR_CPX_APP_ID&ext_user_id=${encodeURIComponent(uid)}`,
   bitlabs:(uid) => `https://web.bitlabs.ai/?uid=${encodeURIComponent(uid)}&token=YOUR_BITLABS_PUBLISHABLE_TOKEN`,
   adgem:  (uid) => `https://wall.adgem.com/wall/api?appid=YOUR_ADGEM_APP_ID&playerid=${encodeURIComponent(uid)}`,
   tapjoy: (uid) => `https://www.tapjoy.com/offerwall?appid=YOUR_TAPJOY_APP_ID&user_id=${encodeURIComponent(uid)}`,
@@ -201,8 +520,6 @@ const SURVEY = {
   offerdaddy:(uid)=> `https://offerdaddy.com/wall/YOUR_SITE_ID/${encodeURIComponent(uid)}`,
   wannads:(uid)=> `https://wall.wannads.com/wall?apiKey=YOUR_WANNADS_PUBLISHABLE_KEY&userId=${encodeURIComponent(uid)}`
 };
-
-/* ===== Build survey provider pills ===== */
 const SURVEY_LIST = [
   ["cpx","CPX"],["bitlabs","BitLabs"],["adgem","AdGem"],["tapjoy","Tapjoy"],
   ["offertoro","OfferToro"],["personaly","Persona.ly"],["ayet","Ayet Studios"],
@@ -210,90 +527,142 @@ const SURVEY_LIST = [
 ];
 (function renderSurveyPills(){
   const pills = document.getElementById('survey_pills');
-  pills.innerHTML = SURVEY_LIST.map(([k,label]) =>
-    `<button class="pill" data-k="${k}" onclick="openSurvey('${k}', this)">${label}</button>`
-  ).join('');
+  pills.innerHTML = SURVEY_LIST.map(([k,label]) => `<button class="pill" data-k="${k}" onclick="openSurvey('${k}', this)">${label}</button>`).join('');
 })();
-
-// resolve ext_user_id: prefer JWT user; else take manual input
-async function resolveUserId(){
-  try{
-    if (AUTH.token) {
-      const me = await fetch('/api/auth/me', { headers: authHeaders() }).then(r=>r.json());
-      if (me.id) return me.id;
-    }
-  }catch{}
-  const manual = document.getElementById('uid').value.trim();
-  return manual || 'guest';
+function currentGuestId(){
+  const a = document.getElementById('uid')?.value?.trim();
+  const b = document.getElementById('uid2')?.value?.trim();
+  return a || b || 'guest';
 }
-
-async function openSurvey(key, el){
-  const uid = await resolveUserId();
+function openSurvey(key, el){
+  const uid = AUTH.token ? 'jwt' : currentGuestId();
   const urlBuilder = SURVEY[key];
-  const frame=document.getElementById('survey_frame');
   if(!urlBuilder){ alert('Provider not configured'); return; }
   document.querySelectorAll('#survey_pills .pill').forEach(p=>p.classList.remove('active'));
   if(el) el.classList.add('active');
-  frame.src = urlBuilder(uid);
+  document.getElementById('survey_frame').src = urlBuilder(uid);
 }
 
-/* ===== Wallet & Withdraw (unchanged) ===== */
-async function loadWallet(){
+/* ===== YouTube ===== */
+async function loadYouTubeFull(){
   try{
-    if (AUTH.token) {
-      const r = await fetch('/api/wallet', { headers: authHeaders() });
-      if (r.ok) {
-        const j = await r.json();
-        const f=(n)=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
-        document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
-        return;
-      }
-    }
-    const uid=document.getElementById('uid').value||'guest';
-    const r=await fetch('/api/wallet/'+encodeURIComponent(uid));
-    const j=await r.json();
-    const f=(n)=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
-    document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
-  }catch(e){ document.getElementById('avail').textContent='—'; }
+    const grid=document.getElementById('yt'); if(!grid) return;
+    const res=await fetch('/api/youtube/videos'); const data=await res.json();
+    const items=data.items||[];
+    grid.innerHTML = items.map(i=>{
+      const id = i.id.videoId || i.id.playlistId || i.id.channelId || '';
+      const sn = i.snippet||{};
+      const thumb = (sn.thumbnails?.medium?.url)|| (sn.thumbnails?.high?.url)||'';
+      const title = sn.title||'';
+      const url = id ? `https://www.youtube.com/watch?v=${id}` : '#';
+      return `<a class="yt-card" href="${url}" target="_blank" rel="noopener">
+          <img class="yt-thumb" src="${thumb}" alt="">
+          <div class="yt-title">${title}</div>
+        </a>`;
+    }).join('');
+  }catch(e){}
 }
-
-async function reqWithdraw(){
-  const email=document.getElementById('w_email').value.trim();
-  const amount_usd=Number(document.getElementById('w_amount').value||0);
-  if(!email||!amount_usd){document.getElementById('wout').textContent='Enter email and amount.';return;}
-  const r=await fetch('/api/withdraw/request',{ method:'POST', headers: authHeaders({'Content-Type':'application/json'}), body:JSON.stringify({email,amount_usd}) });
-  const j=await r.json();
-  document.getElementById('wout').textContent=j.ok?'Request sent ✅':'Error: '+(j.error||'failed');
-}
-
-/* ===== PayPal Buttons (unchanged) ===== */
-(async () => {
-  try {
-    const cfg = await fetch('/api/config/public').then(r => r.json());
-    if (!cfg.PAYPAL_CLIENT_ID) return;
-    const s = document.createElement('script');
-    s.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(cfg.PAYPAL_CLIENT_ID) + '&currency=USD&intent=capture&enable-funding=card';
-    s.onload = () => {
-      paypal.Buttons({
-        createOrder: async () => {
-          const amount_usd = prompt('Deposit amount (USD):','5.00');
-          const r = await fetch('/api/paypal/deposit/create',{ method:'POST', headers: authHeaders({'Content-Type':'application/json'}), body:JSON.stringify({ amount_usd: Number(amount_usd||0) }) });
-          const j = await r.json(); return j.id;
-        },
-        onApprove: async (data) => {
-          const r = await fetch('/api/paypal/deposit/capture',{ method:'POST', headers: authHeaders({'Content-Type':'application/json'}), body:JSON.stringify({ order_id: data.orderID }) });
-          const j = await r.json(); alert('Deposit captured: $'+(j.captured_usd||0));
-          loadWallet();
-        },
-        onError: (err)=>{ console.error(err); alert('Payment error.'); }
-      }).render('#paypal-buttons');
-    };
-    document.head.appendChild(s);
-  } catch(e){ console.error(e); }
+(async ()=>{ // dashboard single video
+  try{
+    const spot=document.getElementById('yt_one'); if(!spot) return;
+    const res=await fetch('/api/youtube/videos'); const data=await res.json();
+    const v=(data.items||[])[0]; if(!v){ spot.innerHTML='<div class="muted">none</div>'; return;}
+    const id = v.id.videoId || v.id.playlistId || v.id.channelId || '';
+    const sn = v.snippet||{}; const thumb = sn.thumbnails?.medium?.url || ''; const title=sn.title||'';
+    const url = id ? `https://www.youtube.com/watch?v=${id}` : '#';
+    spot.innerHTML = `<a class="yt-card" href="${url}" target="_blank" rel="noopener">
+      <img class="yt-thumb" src="${thumb}" alt=""><div class="yt-title">${title}</div></a>`;
+  }catch(e){}
 })();
 
-/* ===== WhatsApp / YouTube / Quiz / Radio (unchanged) ===== */
-// ... (identical to your existing script for these sections) ...
+/* ===== Radio ===== */
+async function searchRadio(){
+  const q = document.getElementById('radio_q').value.trim() || 'kenya';
+  const out = document.getElementById('radio_results');
+  out.innerHTML = 'Searching...';
+  try{
+    const r = await fetch('/api/radio/search?q='+encodeURIComponent(q));
+    const j = await r.json();
+    if(!j.items || !j.items.length){ out.innerHTML = '<div class="muted">No stations found.</div>'; return; }
+    out.innerHTML = j.items.map(s => `
+      <div class="radio-item">
+        <div style="flex:1">
+          <div style="font-weight:800">${s.name}</div>
+          <div class="muted">${s.country||''} · ${s.codec||''} · ${s.bitrate||''}kbps</div>
+        </div>
+        <a href="${s.homepage||'#'}" target="_blank" class="muted" style="text-decoration:none">site</a>
+      </div>
+      <audio controls src="${s.url}"></audio>
+    `).join('');
+  }catch(e){ out.innerHTML = '<div class="muted">Error searching radio.</div>'; }
+}
+
+/* ===== Quiz ===== */
+let quizState = { items:[], i:0, score:0 };
+async function startQuiz(){
+  const topic = document.getElementById('quiz_topic').value || 'general';
+  const n = Number(document.getElementById('quiz_n').value||5);
+  const r = await fetch('/api/ai/quiz',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic, n})});
+  const j = await r.json();
+  quizState = { items: j.items||[], i:0, score:0 };
+  document.getElementById('quiz_msg').textContent = `Provider: ${j.provider||'local'}`;
+  renderQuiz();
+}
+function renderQuiz(){
+  const box = document.getElementById('quiz_box'); box.innerHTML='';
+  const { items, i, score } = quizState;
+  if(!items.length){ box.innerHTML='<div class="muted">No questions.</div>'; return; }
+  if(i>=items.length){ box.innerHTML=`<div class="big">Score: ${score}/${items.length}</div>`; return; }
+  const q = items[i];
+  const qEl = document.createElement('div'); qEl.style.margin='8px 0 6px'; qEl.style.fontWeight='800'; qEl.textContent=(i+1)+'. '+q.q;
+  box.appendChild(qEl);
+  q.options.forEach((opt,idx)=>{
+    const b=document.createElement('button');
+    b.className='pill'; b.style.display='block'; b.style.margin='6px 0';
+    b.textContent=opt;
+    b.onclick=()=>{
+      if(idx===q.answer){ quizState.score++; b.style.borderColor='#1f7a42'; b.style.background='#0f2a1b'; }
+      else{ b.style.borderColor='#7a1f1f'; b.style.background='#2a0f0f'; }
+      setTimeout(()=>{ quizState.i++; renderQuiz(); }, 360);
+    };
+    box.appendChild(b);
+  });
+}
+
+/* ===== Mini Game (Reaction Tap) ===== */
+let gTimer=null,gLeft=0,gScore=0,gTime=15;
+function gameStart(){
+  gameStop();
+  gScore=0; gTime=15; document.getElementById('game_score').textContent=gScore; document.getElementById('game_time').textContent=gTime;
+  const area=document.getElementById('game_area'); area.innerHTML='';
+  const target=document.createElement('div');
+  Object.assign(target.style,{position:'absolute',width:'46px',height:'46px',borderRadius:'999px',background:'conic-gradient(from 120deg,#22c55e,#4ade80,#60a5fa,#a78bfa)',boxShadow:'0 0 18px rgba(99,102,241,.45)',cursor:'pointer'});
+  area.appendChild(target);
+  const move=()=>{ const w=area.clientWidth-46, h=area.clientHeight-46; target.style.left=Math.floor(Math.random()*w)+'px'; target.style.top=Math.floor(Math.random()*h)+'px'; };
+  move();
+  target.onclick=()=>{ gScore++; document.getElementById('game_score').textContent=gScore; move(); };
+  gTimer=setInterval(()=>{ gTime--; document.getElementById('game_time').textContent=gTime; if(gTime<=0) gameStop(true); },1000);
+}
+function gameStop(finished=false){
+  if(gTimer){ clearInterval(gTimer); gTimer=null; }
+  if(finished){ alert('Time up! Score: '+gScore); }
+  document.getElementById('game_area').innerHTML='';
+}
+
+/* ===== Settings: reset email ===== */
+async function forgot(){
+  const email=document.getElementById('set_email').value.trim(); const out=document.getElementById('set_msg');
+  if(!email){ out.textContent='Enter an email.'; return; }
+  const r=await fetch('/api/auth/forgot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+  const j=await r.json(); out.textContent = j.ok ? 'Reset link sent (if account exists).' : 'Error.';
+}
+
+/* ===== PWA + Year ===== */
+if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').catch(()=>{}); }
+document.getElementById('year').textContent = new Date().getFullYear();
+
+/* Initial pulls */
+loadWallet();
 </script>
 </body>
 </html>
