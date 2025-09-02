@@ -3,22 +3,23 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "EngageHubCoin – surveys, social integrations, PayPal deposits/payouts, WhatsApp, TikTok, Facebook, YouTube, AI quiz.",
+  "description": "EngageHubCoin – surveys, social integrations, PayPal deposits/payouts, WhatsApp, YouTube, AI quiz, SQLite, JWT auth.",
   "scripts": {
-    "start": "node backend/server.js"
+    "start": "node backend/server.js",
+    "start:dev": "node --watch backend/server.js"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "axios": "^1.7.0",
+    "axios": "^1.7.7",
     "bcryptjs": "^3.0.2",
-    "body-parser": "^1.20.2",
+    "body-parser": "^1.20.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
-    "nodemailer": "^7.0.6",
+    "nodemailer": "^6.9.14",
     "sqlite": "^5.1.1",
     "sqlite3": "^5.1.7"
   }

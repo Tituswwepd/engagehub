@@ -11,28 +11,40 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import nodemailer from "nodemailer";
 import crypto from "crypto";
+import fs from "fs";
 
 dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/* ==========================================
+   APP & CORE CONFIG
+========================================== */
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// serve frontend
-app.use(express.static(path.join(__dirname, "../frontend")));
+const PORT = Number(process.env.PORT || 8081);
+const DB_FILE = process.env.DB_FILE || "./data.sqlite";
 
-/* =========================
-   DB INIT
-========================= */
+/* ==========================================
+   SERVE FRONTEND (SPA)
+========================================== */
+const FRONTEND_DIR = path.join(__dirname, "../frontend");
+app.use(express.static(FRONTEND_DIR));
+
+/* ==========================================
+   SQLITE INIT
+========================================== */
 let db;
+
 async function initDb() {
-  db = await sqliteOpen({
-    filename: process.env.DB_FILE || "./data.sqlite",
-    driver: sqlite3.Database,
-  });
+  const absDbPath = path.isAbsolute(DB_FILE) ? DB_FILE : path.join(process.cwd(), DB_FILE);
+  const dbDir = path.dirname(absDbPath);
+  if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
+
+  db = await sqliteOpen({ filename: absDbPath, driver: sqlite3.Database });
 
   await db.exec(`
     PRAGMA journal_mode = WAL;
@@ -107,9 +119,9 @@ async function initDb() {
   `);
 }
 
-/* =========================
-   HELPERS: USERS & WALLET
-========================= */
+/* ==========================================
+   HELPERS (users/wallet)
+========================================== */
 async function ensureUser(user_id, name = "User") {
   const u = await db.get("SELECT id FROM users WHERE id=?", user_id);
   if (!u) {
@@ -120,8 +132,8 @@ async function ensureUser(user_id, name = "User") {
 }
 
 function withdrawableFromWallet(w) {
-  const cap = 0.5 * Number(w.survey_usd_total || 0);
-  const used = Number(w.survey_usd_withdrawn || 0);
+  const cap = 0.5 * Number(w?.survey_usd_total || 0); // 50% withdrawable policy for survey earnings
+  const used = Number(w?.survey_usd_withdrawn || 0);
   return Math.max(0, cap - used);
 }
 
@@ -166,46 +178,47 @@ function classifyProvider(p) {
   return map[(p || "").toUpperCase()] || "OWNER";
 }
 
-/* =========================
-   JWT AUTH
-========================= */
+/* ==========================================
+   JWT helpers & middleware
+========================================== */
 function signJwt(payload) {
-  return jwt.sign(payload, process.env.JWT_SECRET, {
+  return jwt.sign(payload, process.env.JWT_SECRET || "change_me", {
     expiresIn: process.env.JWT_EXPIRES_IN || "1h",
   });
 }
-
 function authOptional(req, _res, next) {
   const auth = req.headers["authorization"];
   if (auth?.startsWith("Bearer ")) {
-    try { req.user = jwt.verify(auth.split(" ")[1], process.env.JWT_SECRET); } catch {}
+    try { req.user = jwt.verify(auth.split(" ")[1], process.env.JWT_SECRET || "change_me"); } catch {}
   }
   next();
 }
-
 function authRequired(req, res, next) {
   const auth = req.headers["authorization"];
   if (!auth) return res.status(401).json({ error: "no_token" });
   try {
-    req.user = jwt.verify(auth.split(" ")[1], process.env.JWT_SECRET);
+    req.user = jwt.verify(auth.split(" ")[1], process.env.JWT_SECRET || "change_me");
     next();
   } catch { return res.status(401).json({ error: "invalid_token" }); }
 }
 
-/* =========================
+/* ==========================================
    AUTH ROUTES
-========================= */
+========================================== */
 app.post("/api/auth/register", async (req, res) => {
   try {
     const { email, password, name } = req.body || {};
     if (!email || !password) return res.status(400).json({ error: "missing_fields" });
+    const existing = await db.get("SELECT id FROM users WHERE email=?", email);
+    if (existing) return res.status(409).json({ error: "email_in_use" });
+
     const hash = await bcrypt.hash(password, 10);
     await db.run("INSERT INTO users (id,email,password_hash,name) VALUES (?,?,?,?)", email, email, hash, name || "");
     await ensureUser(email, name || "User");
     const token = signJwt({ id: email, email });
     res.json({ token });
   } catch {
-    res.status(400).json({ error: "email_in_use" });
+    res.status(500).json({ error: "register_failed" });
   }
 });
 
@@ -223,20 +236,21 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-// expose current user id (for CPX ext_user_id on frontend)
 app.get("/api/auth/me", authOptional, (req, res) => {
   if (!req.user) return res.json({ id: null });
   res.json({ id: req.user.id, email: req.user.email });
 });
 
-/* =========================
-   PASSWORD RESET (email)
-========================= */
+/* ==========================================
+   PASSWORD RESET (SMTP optional)
+========================================== */
 const mailer = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT || 587),
   secure: String(process.env.SMTP_SECURE || "false") === "true",
-  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  auth: process.env.SMTP_USER && process.env.SMTP_PASS
+    ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+    : undefined,
 });
 
 app.post("/api/auth/forgot", async (req, res) => {
@@ -252,11 +266,13 @@ app.post("/api/auth/forgot", async (req, res) => {
     const expiresAt = Date.now() + ttlMs;
 
     await db.run("INSERT INTO reset_tokens (email, token, expires_at) VALUES (?,?,?)", email, token, expiresAt);
+    const base = process.env.APP_BASE_URL || "";
+    const link = `${base}/reset.html?token=${token}&email=${encodeURIComponent(email)}`;
 
-    const link = `${process.env.APP_BASE_URL || ""}/reset.html?token=${token}&email=${encodeURIComponent(email)}`;
+    if (!mailer.options.host) return res.json({ ok: true, note: "mailer_not_configured" });
 
     await mailer.sendMail({
-      from: process.env.SMTP_FROM,
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
       to: email,
       subject: "Password Reset - EngageHubCoin",
       text: `Click the link to reset your password: ${link}`,
@@ -264,8 +280,7 @@ app.post("/api/auth/forgot", async (req, res) => {
     });
 
     res.json({ ok: true });
-  } catch (e) {
-    console.error(e);
+  } catch {
     res.status(500).json({ error: "reset_failed" });
   }
 });
@@ -287,9 +302,9 @@ app.post("/api/auth/reset", async (req, res) => {
   }
 });
 
-/* =========================
-   PUBLIC CONFIG (safe)
-========================= */
+/* ==========================================
+   PUBLIC CONFIG (safe to expose)
+========================================== */
 app.get("/api/config/public", (_req, res) => {
   res.json({
     PAYPAL_CLIENT_ID: process.env.PAYPAL_CLIENT_ID || "",
@@ -300,9 +315,9 @@ app.get("/api/config/public", (_req, res) => {
   });
 });
 
-/* =========================
-   WALLET (JWT-first, fallback user_id)
-========================= */
+/* ==========================================
+   WALLET
+========================================== */
 app.get("/api/wallet", authOptional, async (req, res) => {
   try {
     const user_id = req.user?.id || req.query.user_id || req.headers["x-user-id"];
@@ -321,9 +336,9 @@ app.get("/api/wallet/:user_id", async (req, res) => {
   return app._router.handle(req, res);
 });
 
-/* =========================
+/* ==========================================
    WITHDRAW REQUESTS
-========================= */
+========================================== */
 app.post("/api/withdraw/request", authOptional, async (req, res) => {
   try {
     const user_id = req.user?.id || req.body.user_id;
@@ -347,28 +362,20 @@ app.post("/api/withdraw/request", authOptional, async (req, res) => {
   }
 });
 
-/* =========================
+/* ==========================================
    CPX POSTBACK (hash-verified)
-   Endpoint to configure in CPX:
-   https://YOUR-DOMAIN/api/postback/cpx?status={status}&trans_id={trans_id}&user_id={user_id}&sub_id={subid}&amount_local={amount_local}&amount_usd={amount_usd}&offer_id={offer_id}&hash={secure_hash}&ip_click={ip_click}
-========================= */
+========================================== */
 app.get("/api/postback/cpx", async (req, res) => {
   try {
     const {
-      status,
-      trans_id,
-      user_id,
-      sub_id,
-      amount_local,
-      amount_usd,
-      offer_id,
-      hash: secure_hash,
-      ip_click
+      status, trans_id, user_id, sub_id,
+      amount_local, amount_usd, offer_id,
+      hash: secure_hash, ip_click
     } = req.query;
 
-    // verify hash (most CPX setups use sha1(secret + trans_id))
     const secret = process.env.CPX_POSTBACK_SECRET || "";
     if (!secret) return res.status(500).send("no secret");
+
     const expected = crypto.createHash("sha1").update(`${secret}${trans_id}`).digest("hex");
     if (!secure_hash || secure_hash.toLowerCase() !== expected.toLowerCase()) {
       return res.status(403).send("bad hash");
@@ -376,16 +383,14 @@ app.get("/api/postback/cpx", async (req, res) => {
 
     const usd = Number(amount_usd || 0);
 
-    // store idempotently
     await db.run(
       "INSERT OR IGNORE INTO survey_events (provider, trans_id, user_id, payout, raw) VALUES (?,?,?,?,?)",
       "cpx", String(trans_id || ""), String(user_id || ""), usd, JSON.stringify(req.query)
     );
 
-    // status==1 completed -> credit; status==2 reversal -> (optional) revert
     if (String(status) === "1") {
       const as = classifyProvider("CPX");
-      const meta = { provider: "cpx", trans_id, offer_id, sub_id, ip_click };
+      const meta = { provider: "cpx", trans_id, offer_id, sub_id, ip_click, amount_local };
       if (as === "SURVEY") await creditSurveyUSD(user_id, usd, meta);
       else await creditOwnerUSD(user_id, usd, meta);
     }
@@ -397,9 +402,9 @@ app.get("/api/postback/cpx", async (req, res) => {
   }
 });
 
-/* =========================
-   OTHER PROVIDER HOOKS (unchanged)
-========================= */
+/* ==========================================
+   OTHER PROVIDER HOOKS (optional stubs)
+========================================== */
 app.get("/webhooks/bitlabs", async (req, res) => {
   try {
     const { user_id, transaction_id, amount } = req.query;
@@ -418,7 +423,7 @@ app.get("/webhooks/bitlabs", async (req, res) => {
 app.get("/webhooks/adgem", async (req, res) => {
   try {
     const { user_id, trans_id, payout, secret } = req.query;
-    if (secret !== process.env.ADGEM_POSTBACK_SECRET) return res.status(403).send("bad secret");
+    if ((secret || "") !== (process.env.ADGEM_POSTBACK_SECRET || "")) return res.status(403).send("bad secret");
     const usd = Number(payout || 0);
     const as = classifyProvider("ADGEM");
     if (as === "SURVEY") await creditSurveyUSD(user_id, usd, { provider: "adgem", trans_id });
@@ -446,9 +451,9 @@ app.get("/webhooks/tapjoy", async (req, res) => {
   } catch { res.status(500).send("ERR"); }
 });
 
-/* =========================
-   PAYPAL (unchanged)
-========================= */
+/* ==========================================
+   PAYPAL (Deposits)
+========================================== */
 async function paypalToken() {
   const base = process.env.PAYPAL_API_BASE || "https://api-m.paypal.com";
   const id = process.env.PAYPAL_CLIENT_ID;
@@ -506,69 +511,9 @@ app.post("/api/paypal/deposit/capture", authOptional, async (req, res) => {
   }
 });
 
-/* =========================
-   ADMIN (unchanged)
-========================= */
-function requireAdmin(req, res) {
-  const key = req.query.key || req.body?.admin_secret;
-  if (key !== process.env.ADMIN_SECRET) {
-    res.status(403).json({ error: "forbidden" });
-    return false;
-  }
-  return true;
-}
-
-app.get("/api/admin/user/:user_id", (req, res, next) => { if (!requireAdmin(req, res)) return; next(); }, async (req, res) => {
-  const { user_id } = req.params;
-  const w = await db.get("SELECT * FROM wallets WHERE user_id=?", user_id);
-  const ledger = await db.all("SELECT * FROM ledger WHERE user_id=? ORDER BY id DESC LIMIT 200", user_id);
-  res.json({ wallet: w, withdrawable_usd: withdrawableFromWallet(w), ledger });
-});
-
-app.get("/api/admin/withdraw/requests", (req, res, next) => { if (!requireAdmin(req, res)) return; next(); }, async (_req, res) => {
-  const rows = await db.all("SELECT * FROM withdraw_requests WHERE status='pending' ORDER BY id ASC");
-  res.json({ items: rows });
-});
-
-app.post("/api/admin/payouts/paypal", (req, res, next) => { if (!requireAdmin(req, res)) return; next(); }, async (req, res) => {
-  try {
-    const { request_id } = req.body || {};
-    const r = await db.get("SELECT * FROM withdraw_requests WHERE id=?", request_id);
-    if (!r || r.status !== "pending") return res.status(400).json({ error: "invalid_request" });
-
-    const w = await db.get("SELECT * FROM wallets WHERE user_id=?", r.user_id);
-    const avail = withdrawableFromWallet(w);
-    if (r.amount > avail + 1e-9) return res.status(400).json({ error: "exceeds_available" });
-
-    const token = await paypalToken();
-    const base = process.env.PAYPAL_API_BASE || "https://api-m.paypal.com";
-    const batch = {
-      sender_batch_header: { email_subject: "Your EngageHubCoin Payout" },
-      items: [{
-        recipient_type: "EMAIL",
-        amount: { value: String(r.amount.toFixed(2)), currency: "USD" },
-        receiver: r.email,
-        note: "Payout",
-        sender_item_id: String(r.id),
-      }],
-    };
-    const { data } = await axios.post(base + "/v1/payments/payouts", batch, {
-      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-    });
-
-    await db.run("UPDATE wallets SET survey_usd_withdrawn = survey_usd_withdrawn + ?, total_usd = total_usd - ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?", r.amount, r.amount, r.user_id);
-    await db.run("UPDATE withdraw_requests SET status='paid' WHERE id=?", r.id);
-    await db.run("INSERT INTO ledger (user_id, type, amount, meta) VALUES (?,?,?,?)", r.user_id, "payout_paypal", -r.amount, JSON.stringify({ request_id: r.id, batch_id: data?.batch_header?.payout_batch_id }));
-
-    res.json({ ok: true, data });
-  } catch {
-    res.status(500).json({ error: "payout_failed" });
-  }
-});
-
-/* =========================
-   META WHATSAPP / YOUTUBE / RADIO / AI QUIZ (unchanged)
-========================= */
+/* ==========================================
+   WHATSAPP / YOUTUBE / RADIO / QUIZ
+========================================== */
 app.get("/webhooks/whatsapp", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
@@ -577,6 +522,7 @@ app.get("/webhooks/whatsapp", (req, res) => {
   res.sendStatus(403);
 });
 app.post("/webhooks/whatsapp", async (_req, res) => { res.sendStatus(200); });
+
 app.post("/api/whatsapp/send", async (req, res) => {
   try {
     const token = process.env.META_ACCESS_TOKEN;
@@ -650,11 +596,16 @@ app.post("/api/ai/quiz", async (req, res) => {
 
   try {
     if (!key) return res.json({ provider:"local", items: await localQuiz() });
-    const { OpenAI } = await import("openai");
+    const { default: OpenAI } = await import("openai");
     const client = new OpenAI({ apiKey: key });
     const prompt = `Create ${n} multiple-choice questions on "${topic}". Return JSON {items:[{q,options,answer}]}`;
-    const r = await client.responses.create({ model:"gpt-4.1-mini", input: prompt, temperature:0.4 });
-    let text = r.output_text; let parsed;
+    const r = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.4
+    });
+    const text = r.choices?.[0]?.message?.content || "";
+    let parsed;
     try { parsed = JSON.parse(text); }
     catch { const m = text.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : {items: await localQuiz()}; }
     res.json({ provider:"openai", items: parsed.items?.slice(0,n) || await localQuiz() });
@@ -663,13 +614,17 @@ app.post("/api/ai/quiz", async (req, res) => {
   }
 });
 
-/* =========================
-   ROOT
-========================= */
+/* ==========================================
+   HEALTH + SPA FALLBACK
+========================================== */
+app.get("/api/health", (_req, res) => res.json({ ok: true, ts: Date.now() }));
 app.get("/health", (_req, res) => res.send("ok"));
-app.get("/", (_req, res) => res.sendFile(path.join(__dirname, "../frontend/index.html")));
 
-const PORT = Number(process.env.PORT || 8080);
-initDb().then(() =>
-  app.listen(PORT, () => console.log("EngageHubCoin running on http://localhost:" + PORT))
-);
+app.get("*", (_req, res) => res.sendFile(path.join(FRONTEND_DIR, "index.html")));
+
+/* ==========================================
+   BOOTSTRAP
+========================================== */
+initDb().then(() => {
+  app.listen(PORT, () => console.log("EngageHubCoin running on http://localhost:" + PORT));
+});

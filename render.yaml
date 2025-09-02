@@ -3,16 +3,16 @@ services:
     name: engagehubcoin
     env: node
     plan: free
-    rootDir: .
     buildCommand: npm install
     startCommand: npm start
     autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: PORT
+        value: "8081"
+      # You may also set all other env vars here, or use the Render UI.
     disk:
-      name: data
+      name: ehc-sqlite
       mountPath: /var/data
       sizeGB: 1
-    envVars:
-      - key: PORT
-        value: "10000"
-      - key: DB_FILE
-        value: /var/data/data.sqlite
