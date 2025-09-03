@@ -255,8 +255,7 @@
           <h3>Available to withdraw</h3>
           <div id="avail" class="big">—</div>
           <div class="row" style="margin-top:8px">
-            <input id="uid" placeholder="guest user id (optional)"/>
-            <button class="btn primary" onclick="loadWallet()">Refresh</button>
+            <div class="muted">Login to see your balance.</div>
           </div>
         </div>
 
@@ -285,7 +284,6 @@
           <h3>Balance</h3>
           <div id="avail2" class="big">—</div>
           <div class="row" style="margin-top:8px">
-            <input id="uid2" placeholder="guest user id (optional)"/>
             <button class="btn primary" onclick="loadWallet(true)">Refresh</button>
           </div>
         </div>
@@ -446,9 +444,14 @@ const hamburger = document.getElementById('hamburger');
 const overlay = document.getElementById('overlay');
 
 function openSection(id){
+  // gate: if locked section and not logged in, bounce to dashboard
+  if (!isLoggedIn() && !PUBLIC_SECTIONS.has(id)) {
+    toast('Please log in to access this section.');
+    id = 'dashboard';
+  }
   sections.forEach(s=>s.classList.toggle('active', s.id===id));
   links.forEach(a=>a.classList.toggle('active', a.dataset.section===id));
-  if(id==='wallet'){ ensurePayPalButtons(); }
+  if(id==='wallet'){ ensurePayPalButtons(); loadWallet(true); }
   if(id==='media'){ loadYouTubeFull(); }
   history.replaceState && history.replaceState(null, '', '#'+id);
 }
@@ -464,19 +467,47 @@ links.forEach(a => a.addEventListener('click', (e) => {
   openSection(a.dataset.section);
 }));
 
-/* ===== Auth state ===== */
+/* ===== Auth state & gating ===== */
 let AUTH = { token: localStorage.getItem('jwt') || null };
+const PUBLIC_SECTIONS = new Set(["dashboard"]); // only Dashboard is public
+function isLoggedIn(){ return !!AUTH.token; }
 function authHeaders(base = {}) { return AUTH.token ? { ...base, Authorization: 'Bearer ' + AUTH.token } : base; }
 function setAuthStatus(){
-  const t = AUTH.token ? 'logged in' : 'guest';
+  const t = isLoggedIn() ? 'logged in' : 'guest';
   const el1=document.getElementById('auth_status'); if(el1) el1.textContent=t;
-  const el2=document.getElementById('kpi_auth'); if(el2) el2.textContent = t === 'guest' ? 'Guest' : 'Member';
+  const el2=document.getElementById('kpi_auth'); if(el2) el2.textContent = isLoggedIn() ? 'Member' : 'Guest';
+  gateUI();
+}
+function gateUI(){
+  // disable locked nav items when logged out
+  document.querySelectorAll('.nav a').forEach(a=>{
+    const locked = !PUBLIC_SECTIONS.has(a.dataset.section);
+    if(!isLoggedIn() && locked){
+      a.style.pointerEvents='none'; a.style.opacity=.45;
+    }else{
+      a.style.pointerEvents=''; a.style.opacity=1;
+    }
+  });
+  // if currently on a locked section as guest, go home
+  const cur = (location.hash||'#dashboard').slice(1);
+  if(!isLoggedIn() && !PUBLIC_SECTIONS.has(cur)){ location.hash = '#dashboard'; }
 }
 setAuthStatus();
+
+/* Tiny toast helper */
+function toast(msg){
+  try{
+    const t=document.createElement('div');
+    t.textContent=msg;
+    Object.assign(t.style,{position:'fixed',left:'50%',bottom:'22px',transform:'translateX(-50%)',background:'#0b1430',border:'1px solid #2a3757',padding:'10px 14px',borderRadius:'12px',zIndex:999,color:'#e8eef7',boxShadow:'0 10px 30px rgba(0,0,0,.35)'});
+    document.body.appendChild(t); setTimeout(()=>t.remove(),2200);
+  }catch(e){}
+}
 
 async function register(){
   const email = document.getElementById('auth_email').value.trim();
   const password = document.getElementById('auth_pass').value;
+  if(!email || !password){ document.getElementById('auth_msg').textContent='Enter email and password.'; return; }
   const r = await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
   const j = await r.json();
   if(j.token){ AUTH.token=j.token; localStorage.setItem('jwt', j.token); document.getElementById('auth_msg').textContent='Registered & logged in.'; setAuthStatus(); loadWallet(); }
@@ -485,36 +516,43 @@ async function register(){
 async function login(){
   const email = document.getElementById('auth_email').value.trim();
   const password = document.getElementById('auth_pass').value;
+  if(!email || !password){ document.getElementById('auth_msg').textContent='Enter email and password.'; return; }
   const r = await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
   const j = await r.json();
   if(j.token){ AUTH.token=j.token; localStorage.setItem('jwt', j.token); document.getElementById('auth_msg').textContent='Logged in.'; setAuthStatus(); loadWallet(); }
   else document.getElementById('auth_msg').textContent = j.error||'failed';
 }
-function logout(){ AUTH.token=null; localStorage.removeItem('jwt'); document.getElementById('auth_msg').textContent='Logged out.'; setAuthStatus(); }
+function logout(){
+  AUTH.token=null; localStorage.removeItem('jwt');
+  document.getElementById('auth_msg').textContent='Logged out.';
+  setAuthStatus();
+  // clear gated content UI
+  document.getElementById('avail').textContent='—';
+  document.getElementById('avail2').textContent='—';
+  document.getElementById('kpi_avail').textContent='—';
+  document.getElementById('survey_frame').src='';
+  history.replaceState && history.replaceState(null,'','#dashboard');
+  openSection('dashboard');
+}
 
-/* ===== Wallet ===== */
+/* ===== Wallet (AUTH REQUIRED) ===== */
 async function loadWallet(fromWalletTab=false){
+  if(!isLoggedIn()){ toast('Please log in to view wallet'); return; }
   try{
-    if (AUTH.token) {
-      const r = await fetch('/api/wallet', { headers: authHeaders() });
-      if (r.ok) {
-        const j = await r.json(); const f=n=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
-        (fromWalletTab?document.getElementById('avail2'):document.getElementById('avail')).textContent='$ '+f(j.available_to_withdraw_usd);
-        const k=document.getElementById('kpi_avail'); if(k) k.textContent='$ '+f(j.available_to_withdraw_usd);
-        if(fromWalletTab) document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
-        return;
-      }
-    }
-    const idEl = fromWalletTab? document.getElementById('uid2'): document.getElementById('uid');
-    const uid=idEl?.value||'guest';
-    const r=await fetch('/api/wallet/'+encodeURIComponent(uid));
-    const j=await r.json(); const f=n=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
+    const r = await fetch('/api/wallet', { headers: authHeaders() });
+    if(!r.ok){ throw new Error('wallet unauthorized'); }
+    const j = await r.json();
+    const f=n=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
     (fromWalletTab?document.getElementById('avail2'):document.getElementById('avail')).textContent='$ '+f(j.available_to_withdraw_usd);
     const k=document.getElementById('kpi_avail'); if(k) k.textContent='$ '+f(j.available_to_withdraw_usd);
     if(fromWalletTab) document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
-  }catch(e){ console.warn('wallet error', e); }
+  }catch(e){
+    console.warn('wallet error', e);
+    (fromWalletTab?document.getElementById('avail2'):document.getElementById('avail')).textContent='—';
+  }
 }
 async function reqWithdraw(){
+  if(!isLoggedIn()){ toast('Please log in'); return; }
   const email=document.getElementById('w_email').value.trim();
   const amount_usd=Number(document.getElementById('w_amount').value||0);
   if(!email||!amount_usd){document.getElementById('wout').textContent='Enter email and amount.';return;}
@@ -523,10 +561,10 @@ async function reqWithdraw(){
   document.getElementById('wout').textContent=j.ok?'Request sent ✅':'Error: '+(j.error||'failed');
 }
 
-/* ===== PayPal (lazy load) ===== */
+/* ===== PayPal (lazy load, AUTH REQUIRED) ===== */
 let paypalLoaded=false;
 async function ensurePayPalButtons(){
-  if(paypalLoaded) return;
+  if(paypalLoaded || !isLoggedIn()) return;
   try {
     const cfg = await fetch('/api/config/public').then(r => r.json());
     if (!cfg.PAYPAL_CLIENT_ID) return;
@@ -550,8 +588,9 @@ async function ensurePayPalButtons(){
   } catch(e){ console.warn('paypal init error', e); }
 }
 
-/* ===== WhatsApp ===== */
+/* ===== WhatsApp (AUTH REQUIRED) ===== */
 async function sendWhatsApp(useSecondary=false){
+  if(!isLoggedIn()){ toast('Please log in to send WhatsApp messages'); return; }
   const to = document.getElementById(useSecondary?'wa_to2':'wa_to').value.trim();
   const text = document.getElementById(useSecondary?'wa_text2':'wa_text').value.trim();
   const out = document.getElementById(useSecondary?'wa_out2':'wa_out');
@@ -562,7 +601,6 @@ async function sendWhatsApp(useSecondary=false){
 
 /* ===== Surveys ===== */
 const SURVEY = {
-  // CPX and others can stay as direct links (replace with your IDs when ready)
   cpx:    (uid) => `https://offers.cpx-research.com/index.php?app_id=YOUR_CPX_APP_ID&ext_user_id=${encodeURIComponent(uid)}`,
   adgem:  (uid) => `https://wall.adgem.com/wall/api?appid=YOUR_ADGEM_APP_ID&playerid=${encodeURIComponent(uid)}`,
   tapjoy: (uid) => `https://www.tapjoy.com/offerwall?appid=YOUR_TAPJOY_APP_ID&user_id=${encodeURIComponent(uid)}`,
@@ -572,12 +610,8 @@ const SURVEY = {
   kiwiwall:(uid)=> `https://www.kiwiwall.com/wall/YOUR_SITE_ID/${encodeURIComponent(uid)}`,
   offerdaddy:(uid)=> `https://offerdaddy.com/wall/YOUR_SITE_ID/${encodeURIComponent(uid)}`,
   wannads:(uid)=> `https://wall.wannads.com/wall?apiKey=YOUR_WANNADS_PUBLISHABLE_KEY&userId=${encodeURIComponent(uid)}`,
-
-  // ✅ BitLabs via your secure server redirect (no token exposed on client)
-  bitlabs:(uid) => {
-    // If logged in (JWT), the server will read user id from the token; otherwise pass ?user_id=
-    return AUTH.token ? `/surveys/bitlabs` : `/surveys/bitlabs?user_id=${encodeURIComponent(uid)}`;
-  }
+  // Secure BitLabs via server (no token in client). Server reads JWT.
+  bitlabs:(_uid) => `/surveys/bitlabs`
 };
 const SURVEY_LIST = [
   ["cpx","CPX"],["bitlabs","BitLabs"],["adgem","AdGem"],["tapjoy","Tapjoy"],
@@ -588,13 +622,9 @@ const SURVEY_LIST = [
   const pills = document.getElementById('survey_pills');
   pills.innerHTML = SURVEY_LIST.map(([k,label]) => `<button class="pill" data-k="${k}" onclick="openSurvey('${k}', this)">${label}</button>`).join('');
 })();
-function currentGuestId(){
-  const a = document.getElementById('uid')?.value?.trim();
-  const b = document.getElementById('uid2')?.value?.trim();
-  return a || b || 'guest';
-}
 function openSurvey(key, el){
-  const uid = AUTH.token ? 'jwt' : currentGuestId();
+  if(!isLoggedIn()){ toast('Please log in to open surveys'); return; }
+  const uid = 'jwt'; // server trusts JWT for identity
   const urlBuilder = SURVEY[key];
   if(!urlBuilder){ alert('Provider not configured'); return; }
   document.querySelectorAll('#survey_pills .pill').forEach(p=>p.classList.remove('active'));
@@ -602,11 +632,13 @@ function openSurvey(key, el){
   document.getElementById('survey_frame').src = urlBuilder(uid);
 }
 
-/* ===== YouTube ===== */
+/* ===== YouTube (AUTH REQUIRED) ===== */
 async function loadYouTubeFull(){
+  if(!isLoggedIn()) return;
   try{
     const grid=document.getElementById('yt'); if(!grid) return;
-    const res=await fetch('/api/youtube/videos'); const data=await res.json();
+    const res=await fetch('/api/youtube/videos', { headers: authHeaders() }); 
+    const data=await res.json();
     const items=data.items||[];
     grid.innerHTML = items.map(i=>{
       const id = i.id.videoId || i.id.playlistId || i.id.channelId || '';
@@ -619,28 +651,28 @@ async function loadYouTubeFull(){
           <div class="yt-title">${title}</div>
         </a>`;
     }).join('');
+    // Also fill dashboard "Latest Video"
+    const spot=document.getElementById('yt_one');
+    if(spot){
+      const v=items[0];
+      if(!v){ spot.innerHTML='<div class="muted">none</div>'; return;}
+      const id = v.id.videoId || v.id.playlistId || v.id.channelId || '';
+      const sn = v.snippet||{}; const thumb = sn.thumbnails?.medium?.url || ''; const title=sn.title||'';
+      const url = id ? `https://www.youtube.com/watch?v=${id}` : '#';
+      spot.innerHTML = `<a class="yt-card" href="${url}" target="_blank" rel="noopener">
+        <img class="yt-thumb" src="${thumb}" alt=""><div class="yt-title">${title}</div></a>`;
+    }
   }catch(e){ console.warn('youtube error', e); }
 }
-(async ()=>{ // dashboard single video
-  try{
-    const spot=document.getElementById('yt_one'); if(!spot) return;
-    const res=await fetch('/api/youtube/videos'); const data=await res.json();
-    const v=(data.items||[])[0]; if(!v){ spot.innerHTML='<div class="muted">none</div>'; return;}
-    const id = v.id.videoId || v.id.playlistId || v.id.channelId || '';
-    const sn = v.snippet||{}; const thumb = sn.thumbnails?.medium?.url || ''; const title=sn.title||'';
-    const url = id ? `https://www.youtube.com/watch?v=${id}` : '#';
-    spot.innerHTML = `<a class="yt-card" href="${url}" target="_blank" rel="noopener">
-      <img class="yt-thumb" src="${thumb}" alt=""><div class="yt-title">${title}</div></a>`;
-  }catch(e){ console.warn('yt one error', e); }
-})();
 
-/* ===== Radio ===== */
+/* ===== Radio (AUTH REQUIRED) ===== */
 async function searchRadio(){
+  if(!isLoggedIn()){ toast('Please log in to search radio'); return; }
   const q = document.getElementById('radio_q').value.trim() || 'kenya';
   const out = document.getElementById('radio_results');
   out.innerHTML = 'Searching...';
   try{
-    const r = await fetch('/api/radio/search?q='+encodeURIComponent(q));
+    const r = await fetch('/api/radio/search?q='+encodeURIComponent(q), { headers: authHeaders() });
     const j = await r.json();
     if(!j.items || !j.items.length){ out.innerHTML = '<div class="muted">No stations found.</div>'; return; }
     out.innerHTML = j.items.map(s => `
@@ -656,12 +688,13 @@ async function searchRadio(){
   }catch(e){ out.innerHTML = '<div class="muted">Error searching radio.</div>'; }
 }
 
-/* ===== Quiz ===== */
+/* ===== Quiz (AUTH REQUIRED) ===== */
 let quizState = { items:[], i:0, score:0 };
 async function startQuiz(){
+  if(!isLoggedIn()){ toast('Please log in to play the quiz'); return; }
   const topic = document.getElementById('quiz_topic').value || 'general';
   const n = Number(document.getElementById('quiz_n').value||5);
-  const r = await fetch('/api/ai/quiz',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic, n})});
+  const r = await fetch('/api/ai/quiz',{method:'POST',headers: authHeaders({'Content-Type':'application/json'}),body:JSON.stringify({topic, n})});
   const j = await r.json();
   quizState = { items: j.items||[], i:0, score:0 };
   document.getElementById('quiz_msg').textContent = `Provider: ${j.provider||'local'}`;
@@ -720,8 +753,12 @@ async function forgot(){
 if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').catch(()=>{}); }
 document.getElementById('year').textContent = new Date().getFullYear();
 
-/* Initial pulls */
-loadWallet();
+/* Initial pulls (safe) */
+if (isLoggedIn()){
+  loadWallet();
+  loadYouTubeFull();
+}
+gateUI();
 </script>
 </body>
 </html>

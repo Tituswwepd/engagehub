@@ -25,6 +25,14 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "../frontend")));
 
 /* =========================
+   JWT secret (dev-safe)
+========================= */
+const JWT_SECRET = process.env.JWT_SECRET || "DEV_ONLY_change_this_in_.env";
+if (!process.env.JWT_SECRET) {
+  console.warn("[WARN] JWT_SECRET not set. Using a dev fallback. Set JWT_SECRET in .env for production!");
+}
+
+/* =========================
    DB INIT
 ========================= */
 let db;
@@ -120,8 +128,8 @@ async function ensureUser(user_id, name = "User") {
 }
 
 function withdrawableFromWallet(w) {
-  const cap = 0.5 * Number(w.survey_usd_total || 0); // 50% of approved survey total
-  const used = Number(w.survey_usd_withdrawn || 0);
+  const cap = 0.5 * Number(w?.survey_usd_total || 0); // 50% of approved survey total
+  const used = Number(w?.survey_usd_withdrawn || 0);
   return Math.max(0, cap - used);
 }
 
@@ -170,15 +178,15 @@ function classifyProvider(p) {
    JWT AUTH
 ========================= */
 function signJwt(payload) {
-  return jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || "1h",
+  return jwt.sign(payload, JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN || "7d",
   });
 }
 
 function authOptional(req, _res, next) {
   const auth = req.headers["authorization"];
   if (auth?.startsWith("Bearer ")) {
-    try { req.user = jwt.verify(auth.split(" ")[1], process.env.JWT_SECRET); } catch {}
+    try { req.user = jwt.verify(auth.split(" ")[1], JWT_SECRET); } catch {}
   }
   next();
 }
@@ -187,7 +195,7 @@ function authRequired(req, res, next) {
   const auth = req.headers["authorization"];
   if (!auth) return res.status(401).json({ error: "no_token" });
   try {
-    req.user = jwt.verify(auth.split(" ")[1], process.env.JWT_SECRET);
+    req.user = jwt.verify(auth.split(" ")[1], JWT_SECRET);
     next();
   } catch { return res.status(401).json({ error: "invalid_token" }); }
 }
@@ -225,7 +233,6 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-// expose current user id
 app.get("/api/auth/me", authOptional, (req, res) => {
   if (!req.user) return res.json({ id: null });
   res.json({ id: req.user.id, email: req.user.email });
@@ -304,12 +311,14 @@ app.get("/api/config/public", (_req, res) => {
 });
 
 /* =========================
-   WALLET (JWT-first, fallback user_id)
+   WALLET & PAID FEATURES (AUTH REQUIRED)
 ========================= */
-app.get("/api/wallet", authOptional, async (req, res) => {
+// Only logged-in users can access these APIs.
+// If you want guests blocked entirely, keep authRequired everywhere below.
+
+app.get("/api/wallet", authRequired, async (req, res) => {
   try {
-    const user_id = req.user?.id || req.query.user_id || req.headers["x-user-id"];
-    if (!user_id) return res.status(400).json({ error: "missing_user" });
+    const user_id = req.user.id;
     await ensureUser(user_id);
     const w = await db.get("SELECT * FROM wallets WHERE user_id=?", user_id);
     const withdrawable = withdrawableFromWallet(w);
@@ -320,19 +329,17 @@ app.get("/api/wallet", authOptional, async (req, res) => {
   }
 });
 
-app.get("/api/wallet/:user_id", async (req, res) => {
-  req.query.user_id = req.params.user_id;
-  return app._router.handle(req, res);
+// Disable the public wallet by user_id
+app.get("/api/wallet/:user_id", (_req, res) => {
+  res.status(403).json({ error: "forbidden" });
 });
 
-/* =========================
-   WITHDRAW REQUESTS
-========================= */
-app.post("/api/withdraw/request", authOptional, async (req, res) => {
+/* Withdraws */
+app.post("/api/withdraw/request", authRequired, async (req, res) => {
   try {
-    const user_id = req.user?.id || req.body.user_id;
+    const user_id = req.user.id;
     const { email, amount_usd } = req.body || {};
-    if (!user_id || !email || !amount_usd) return res.status(400).json({ error: "missing_params" });
+    if (!email || !amount_usd) return res.status(400).json({ error: "missing_params" });
 
     await ensureUser(user_id);
     const w = await db.get("SELECT * FROM wallets WHERE user_id=?", user_id);
@@ -353,7 +360,7 @@ app.post("/api/withdraw/request", authOptional, async (req, res) => {
 });
 
 /* =========================
-   PAYPAL (better diagnostics)
+   PAYPAL (AUTH REQUIRED)
 ========================= */
 async function paypalToken() {
   const base = process.env.PAYPAL_API_BASE || "https://api-m.paypal.com";
@@ -378,19 +385,17 @@ async function paypalToken() {
   }
 }
 
-app.post("/api/paypal/deposit/create", authOptional, async (req, res) => {
+app.post("/api/paypal/deposit/create", authRequired, async (req, res) => {
   try {
-    const user_id = req.user?.id || req.body.user_id;
+    const user_id = req.user.id;
     const { amount_usd } = req.body || {};
-    if (!user_id || !amount_usd) return res.status(400).json({ error: "missing_params" });
+    if (!amount_usd) return res.status(400).json({ error: "missing_params" });
 
     const token = await paypalToken();
     const base = process.env.PAYPAL_API_BASE || "https://api-m.paypal.com";
     const payload = {
       intent: "CAPTURE",
-      purchase_units: [{
-        amount: { currency_code: "USD", value: String(Number(amount_usd).toFixed(2)) }
-      }]
+      purchase_units: [{ amount: { currency_code: "USD", value: String(Number(amount_usd).toFixed(2)) } }]
     };
     const { data } = await axios.post(
       base + "/v2/checkout/orders",
@@ -404,11 +409,11 @@ app.post("/api/paypal/deposit/create", authOptional, async (req, res) => {
   }
 });
 
-app.post("/api/paypal/deposit/capture", authOptional, async (req, res) => {
+app.post("/api/paypal/deposit/capture", authRequired, async (req, res) => {
   try {
-    const user_id = req.user?.id || req.body.user_id;
+    const user_id = req.user.id;
     const { order_id } = req.body || {};
-    if (!user_id || !order_id) return res.status(400).json({ error: "missing_params" });
+    if (!order_id) return res.status(400).json({ error: "missing_params" });
 
     const token = await paypalToken();
     const base = process.env.PAYPAL_API_BASE || "https://api-m.paypal.com";
@@ -513,7 +518,6 @@ app.get("/api/postback/cpx", async (req, res) => {
 /* =========================
    ADGEM (server postback)
 ========================= */
-// AdGem will call: GET /api/postback/adgem?key=SECRET&user_id=[user_id]&payout=[payout]&offer_id=[offer_id]&offer_name=[offer_name]&transaction_id=[transaction_id]
 app.get("/api/postback/adgem", async (req, res) => {
   try {
     const {
@@ -555,22 +559,17 @@ app.get("/api/postback/adgem", async (req, res) => {
 /* =========================
    BITLABS (secure redirect + webhook)
 ========================= */
-// Frontend uses this route; we add the token here so it is not visible in client code.
-app.get("/surveys/bitlabs", authOptional, (req, res) => {
-  const uid = req.user?.id || req.query.user_id;
-  if (!uid) return res.status(400).send("missing user");
+app.get("/surveys/bitlabs", authRequired, (req, res) => {
+  const uid = req.user.id;
   const base  = process.env.BITLABS_BASE_URL || "https://wall.bitlabs.ai";
   const token = process.env.BITLABS_APP_API_TOKEN;
   if (!token) return res.status(500).send("missing BitLabs token");
   return res.redirect(`${base}/?uid=${encodeURIComponent(uid)}&token=${encodeURIComponent(token)}`);
 });
 
-// Reward webhook from BitLabs
 app.get("/webhooks/bitlabs", async (req, res) => {
   try {
     const { key, user_id, transaction_id, amount } = req.query;
-
-    // optional shared-secret check
     if (process.env.BITLABS_WEBHOOK_SECRET && key !== process.env.BITLABS_WEBHOOK_SECRET) {
       return res.status(403).send("bad key");
     }
@@ -579,7 +578,6 @@ app.get("/webhooks/bitlabs", async (req, res) => {
     const tx  = String(transaction_id || "");
     const usd = Number(amount || 0);
 
-    // idempotent insert (prevents double credit)
     const result = await db.run(
       "INSERT OR IGNORE INTO survey_events (provider, trans_id, user_id, payout, raw) VALUES (?,?,?,?,?)",
       "bitlabs", tx, uid, usd, JSON.stringify(req.query)
@@ -599,7 +597,7 @@ app.get("/webhooks/bitlabs", async (req, res) => {
 });
 
 /* =========================
-   META WHATSAPP / YOUTUBE / RADIO / AI QUIZ
+   META WHATSAPP / YOUTUBE / RADIO / AI QUIZ (AUTH REQUIRED)
 ========================= */
 app.get("/webhooks/whatsapp", (req, res) => {
   const mode = req.query["hub.mode"];
@@ -609,7 +607,8 @@ app.get("/webhooks/whatsapp", (req, res) => {
   res.sendStatus(403);
 });
 app.post("/webhooks/whatsapp", async (_req, res) => { res.sendStatus(200); });
-app.post("/api/whatsapp/send", async (req, res) => {
+
+app.post("/api/whatsapp/send", authRequired, async (req, res) => {
   try {
     const token = process.env.META_ACCESS_TOKEN;
     const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
@@ -624,7 +623,7 @@ app.post("/api/whatsapp/send", async (req, res) => {
   } catch (e) { console.error("WA send error:", e?.response?.data || e.message); res.status(500).json({ error: "whatsapp_send_failed" }); }
 });
 
-app.get("/api/youtube/videos", async (_req, res) => {
+app.get("/api/youtube/videos", authRequired, async (_req, res) => {
   try {
     const key = process.env.YOUTUBE_API_KEY, channelId = process.env.YOUTUBE_CHANNEL_ID;
     if (!key || !channelId) return res.json({ items: [] });
@@ -641,7 +640,7 @@ const RADIO_HOSTS = [
   "https://nl1.api.radio-browser.info",
   "https://at1.api.radio-browser.info",
 ];
-app.get("/api/radio/search", async (req, res) => {
+app.get("/api/radio/search", authRequired, async (req, res) => {
   const q = String(req.query.q || "").trim();
   if (!q) return res.json({ items: [] });
   for (const base of RADIO_HOSTS) {
@@ -663,7 +662,7 @@ app.get("/api/radio/search", async (req, res) => {
   res.json({ items: [] });
 });
 
-app.post("/api/ai/quiz", async (req, res) => {
+app.post("/api/ai/quiz", authRequired, async (req, res) => {
   const topic = (req.body.topic || "general").slice(0,80);
   const n = Math.min(Number(req.body.n || 5), 10);
   const key = process.env.OPENAI_API_KEY;
