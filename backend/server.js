@@ -11,40 +11,28 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import nodemailer from "nodemailer";
 import crypto from "crypto";
-import fs from "fs";
 
 dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/* ==========================================
-   APP & CORE CONFIG
-========================================== */
 const app = express();
 app.use(cors());
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: "2mb" }));
 app.use(bodyParser.urlencoded({ extended: true }));
 
-const PORT = Number(process.env.PORT || 8081);
-const DB_FILE = process.env.DB_FILE || "./data.sqlite";
+// serve frontend
+app.use(express.static(path.join(__dirname, "../frontend")));
 
-/* ==========================================
-   SERVE FRONTEND (SPA)
-========================================== */
-const FRONTEND_DIR = path.join(__dirname, "../frontend");
-app.use(express.static(FRONTEND_DIR));
-
-/* ==========================================
-   SQLITE INIT
-========================================== */
+/* =========================
+   DB INIT
+========================= */
 let db;
-
 async function initDb() {
-  const absDbPath = path.isAbsolute(DB_FILE) ? DB_FILE : path.join(process.cwd(), DB_FILE);
-  const dbDir = path.dirname(absDbPath);
-  if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
-
-  db = await sqliteOpen({ filename: absDbPath, driver: sqlite3.Database });
+  db = await sqliteOpen({
+    filename: process.env.DB_FILE || "./data.sqlite",
+    driver: sqlite3.Database,
+  });
 
   await db.exec(`
     PRAGMA journal_mode = WAL;
@@ -119,9 +107,9 @@ async function initDb() {
   `);
 }
 
-/* ==========================================
-   HELPERS (users/wallet)
-========================================== */
+/* =========================
+   HELPERS: USERS & WALLET
+========================= */
 async function ensureUser(user_id, name = "User") {
   const u = await db.get("SELECT id FROM users WHERE id=?", user_id);
   if (!u) {
@@ -132,8 +120,8 @@ async function ensureUser(user_id, name = "User") {
 }
 
 function withdrawableFromWallet(w) {
-  const cap = 0.5 * Number(w?.survey_usd_total || 0); // 50% withdrawable policy for survey earnings
-  const used = Number(w?.survey_usd_withdrawn || 0);
+  const cap = 0.5 * Number(w.survey_usd_total || 0); // 50% of approved survey total
+  const used = Number(w.survey_usd_withdrawn || 0);
   return Math.max(0, cap - used);
 }
 
@@ -178,47 +166,47 @@ function classifyProvider(p) {
   return map[(p || "").toUpperCase()] || "OWNER";
 }
 
-/* ==========================================
-   JWT helpers & middleware
-========================================== */
+/* =========================
+   JWT AUTH
+========================= */
 function signJwt(payload) {
-  return jwt.sign(payload, process.env.JWT_SECRET || "change_me", {
+  return jwt.sign(payload, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || "1h",
   });
 }
+
 function authOptional(req, _res, next) {
   const auth = req.headers["authorization"];
   if (auth?.startsWith("Bearer ")) {
-    try { req.user = jwt.verify(auth.split(" ")[1], process.env.JWT_SECRET || "change_me"); } catch {}
+    try { req.user = jwt.verify(auth.split(" ")[1], process.env.JWT_SECRET); } catch {}
   }
   next();
 }
+
 function authRequired(req, res, next) {
   const auth = req.headers["authorization"];
   if (!auth) return res.status(401).json({ error: "no_token" });
   try {
-    req.user = jwt.verify(auth.split(" ")[1], process.env.JWT_SECRET || "change_me");
+    req.user = jwt.verify(auth.split(" ")[1], process.env.JWT_SECRET);
     next();
   } catch { return res.status(401).json({ error: "invalid_token" }); }
 }
 
-/* ==========================================
+/* =========================
    AUTH ROUTES
-========================================== */
+========================= */
 app.post("/api/auth/register", async (req, res) => {
   try {
     const { email, password, name } = req.body || {};
     if (!email || !password) return res.status(400).json({ error: "missing_fields" });
-    const existing = await db.get("SELECT id FROM users WHERE email=?", email);
-    if (existing) return res.status(409).json({ error: "email_in_use" });
-
     const hash = await bcrypt.hash(password, 10);
     await db.run("INSERT INTO users (id,email,password_hash,name) VALUES (?,?,?,?)", email, email, hash, name || "");
     await ensureUser(email, name || "User");
     const token = signJwt({ id: email, email });
     res.json({ token });
-  } catch {
-    res.status(500).json({ error: "register_failed" });
+  } catch (e) {
+    console.error("Register error:", e?.message);
+    res.status(400).json({ error: "email_in_use" });
   }
 });
 
@@ -231,26 +219,26 @@ app.post("/api/auth/login", async (req, res) => {
     if (!ok) return res.status(400).json({ error: "invalid_credentials" });
     const token = signJwt({ id: user.id, email: user.email });
     res.json({ token });
-  } catch {
+  } catch (e) {
+    console.error("Login error:", e?.message);
     res.status(500).json({ error: "login_failed" });
   }
 });
 
+// expose current user id (for CPX ext_user_id on frontend, if needed)
 app.get("/api/auth/me", authOptional, (req, res) => {
   if (!req.user) return res.json({ id: null });
   res.json({ id: req.user.id, email: req.user.email });
 });
 
-/* ==========================================
-   PASSWORD RESET (SMTP optional)
-========================================== */
+/* =========================
+   PASSWORD RESET (email)
+========================= */
 const mailer = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT || 587),
   secure: String(process.env.SMTP_SECURE || "false") === "true",
-  auth: process.env.SMTP_USER && process.env.SMTP_PASS
-    ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-    : undefined,
+  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
 });
 
 app.post("/api/auth/forgot", async (req, res) => {
@@ -266,13 +254,11 @@ app.post("/api/auth/forgot", async (req, res) => {
     const expiresAt = Date.now() + ttlMs;
 
     await db.run("INSERT INTO reset_tokens (email, token, expires_at) VALUES (?,?,?)", email, token, expiresAt);
-    const base = process.env.APP_BASE_URL || "";
-    const link = `${base}/reset.html?token=${token}&email=${encodeURIComponent(email)}`;
 
-    if (!mailer.options.host) return res.json({ ok: true, note: "mailer_not_configured" });
+    const link = `${process.env.APP_BASE_URL || ""}/reset.html?token=${token}&email=${encodeURIComponent(email)}`;
 
     await mailer.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      from: process.env.SMTP_FROM,
       to: email,
       subject: "Password Reset - EngageHubCoin",
       text: `Click the link to reset your password: ${link}`,
@@ -280,7 +266,8 @@ app.post("/api/auth/forgot", async (req, res) => {
     });
 
     res.json({ ok: true });
-  } catch {
+  } catch (e) {
+    console.error("Reset email error:", e?.message);
     res.status(500).json({ error: "reset_failed" });
   }
 });
@@ -297,14 +284,15 @@ app.post("/api/auth/reset", async (req, res) => {
     await db.run("DELETE FROM reset_tokens WHERE email=?", email);
 
     res.json({ ok: true });
-  } catch {
+  } catch (e) {
+    console.error("Reset apply error:", e?.message);
     res.status(500).json({ error: "reset_failed" });
   }
 });
 
-/* ==========================================
-   PUBLIC CONFIG (safe to expose)
-========================================== */
+/* =========================
+   PUBLIC CONFIG (safe)
+========================= */
 app.get("/api/config/public", (_req, res) => {
   res.json({
     PAYPAL_CLIENT_ID: process.env.PAYPAL_CLIENT_ID || "",
@@ -315,9 +303,9 @@ app.get("/api/config/public", (_req, res) => {
   });
 });
 
-/* ==========================================
-   WALLET
-========================================== */
+/* =========================
+   WALLET (JWT-first, fallback user_id)
+========================= */
 app.get("/api/wallet", authOptional, async (req, res) => {
   try {
     const user_id = req.user?.id || req.query.user_id || req.headers["x-user-id"];
@@ -326,7 +314,8 @@ app.get("/api/wallet", authOptional, async (req, res) => {
     const w = await db.get("SELECT * FROM wallets WHERE user_id=?", user_id);
     const withdrawable = withdrawableFromWallet(w);
     res.json({ user_id, available_to_withdraw_usd: Number(withdrawable.toFixed(2)) });
-  } catch {
+  } catch (e) {
+    console.error("Wallet error:", e?.message);
     res.status(500).json({ error: "wallet_failed" });
   }
 });
@@ -336,9 +325,9 @@ app.get("/api/wallet/:user_id", async (req, res) => {
   return app._router.handle(req, res);
 });
 
-/* ==========================================
+/* =========================
    WITHDRAW REQUESTS
-========================================== */
+========================= */
 app.post("/api/withdraw/request", authOptional, async (req, res) => {
   try {
     const user_id = req.user?.id || req.body.user_id;
@@ -357,27 +346,149 @@ app.post("/api/withdraw/request", authOptional, async (req, res) => {
 
     await db.run("INSERT INTO withdraw_requests (user_id,email,amount) VALUES (?,?,?)", user_id, email, amt);
     res.json({ ok: true });
-  } catch {
+  } catch (e) {
+    console.error("Withdraw request error:", e?.message);
     res.status(500).json({ error: "request_failed" });
   }
 });
 
-/* ==========================================
-   CPX POSTBACK (hash-verified)
-========================================== */
+/* =========================
+   PAYPAL (better diagnostics)
+========================= */
+async function paypalToken() {
+  const base = process.env.PAYPAL_API_BASE || "https://api-m.paypal.com";
+  const id = process.env.PAYPAL_CLIENT_ID;
+  const secret = process.env.PAYPAL_CLIENT_SECRET;
+
+  if (!id || !secret) {
+    throw new Error("paypal_config_missing");
+  }
+  try {
+    const { data } = await axios.post(
+      base + "/v1/oauth2/token",
+      "grant_type=client_credentials",
+      {
+        auth: { username: id, password: secret },
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        timeout: 15000,
+      }
+    );
+    return data.access_token;
+  } catch (e) {
+    console.error("PayPal token error:", e?.response?.data || e.message);
+    throw new Error("paypal_token_error");
+  }
+}
+
+app.post("/api/paypal/deposit/create", authOptional, async (req, res) => {
+  try {
+    const user_id = req.user?.id || req.body.user_id;
+    const { amount_usd } = req.body || {};
+    if (!user_id || !amount_usd) return res.status(400).json({ error: "missing_params" });
+
+    const token = await paypalToken();
+    const base = process.env.PAYPAL_API_BASE || "https://api-m.paypal.com";
+    const payload = {
+      intent: "CAPTURE",
+      purchase_units: [{
+        amount: { currency_code: "USD", value: String(Number(amount_usd).toFixed(2)) }
+      }]
+    };
+    const { data } = await axios.post(
+      base + "/v2/checkout/orders",
+      payload,
+      { headers: { Authorization: "Bearer " + token }, timeout: 20000 }
+    );
+    res.json(data);
+  } catch (e) {
+    console.error("PayPal create_order_failed:", e?.response?.data || e.message);
+    res.status(500).json({ error: "create_order_failed", details: e?.response?.data || e.message });
+  }
+});
+
+app.post("/api/paypal/deposit/capture", authOptional, async (req, res) => {
+  try {
+    const user_id = req.user?.id || req.body.user_id;
+    const { order_id } = req.body || {};
+    if (!user_id || !order_id) return res.status(400).json({ error: "missing_params" });
+
+    const token = await paypalToken();
+    the
+    const base = process.env.PAYPAL_API_BASE || "https://api-m.paypal.com";
+    const { data } = await axios.post(
+      base + `/v2/checkout/orders/${order_id}/capture`,
+      {},
+      { headers: { Authorization: "Bearer " + token }, timeout: 20000 }
+    );
+
+    const captures = data?.purchase_units?.[0]?.payments?.captures || [];
+    let total = 0; for (const c of captures) total += Number(c.amount?.value || 0);
+
+    await ensureUser(user_id);
+    await db.run("UPDATE wallets SET total_usd = total_usd + ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?", total, user_id);
+    await db.run("INSERT INTO ledger (user_id, type, amount, meta) VALUES (?,?,?,?)", user_id, "deposit_paypal", total, JSON.stringify({ order_id }));
+
+    res.json({ ok: true, captured_usd: total, raw: data });
+  } catch (e) {
+    console.error("PayPal capture_failed:", e?.response?.data || e.message);
+    res.status(500).json({ error: "capture_failed", details: e?.response?.data || e.message });
+  }
+});
+
+/* =========================
+   ADMIN (basic)
+========================= */
+function requireAdmin(req, res) {
+  const key = req.query.key || req.query.admin_secret || req.body?.admin_secret;
+  if (key !== process.env.ADMIN_SECRET) {
+    res.status(403).json({ error: "forbidden" });
+    return false;
+  }
+  return true;
+}
+
+app.get("/api/admin/user/:user_id", (req, res, next) => { if (!requireAdmin(req, res)) return; next(); }, async (req, res) => {
+  const { user_id } = req.params;
+  const w = await db.get("SELECT * FROM wallets WHERE user_id=?", user_id);
+  const ledger = await db.all("SELECT * FROM ledger WHERE user_id=? ORDER BY id DESC LIMIT 200", user_id);
+  res.json({ wallet: w, withdrawable_usd: w ? withdrawableFromWallet(w) : 0, ledger });
+});
+
+app.get("/api/admin/withdraw/requests", (req, res, next) => { if (!requireAdmin(req, res)) return; next(); }, async (_req, res) => {
+  const rows = await db.all("SELECT * FROM withdraw_requests WHERE status='pending' ORDER BY id ASC");
+  res.json({ items: rows });
+});
+
+/* =========================
+   CPX (flexible hash)
+========================= */
+function computeCpxHash(secret, transId) {
+  const alg = (process.env.CPX_HASH_ALG || "sha1").toLowerCase();
+  const format = (process.env.CPX_HASH_FORMAT || "secret+trans").toLowerCase();
+  const raw = format === "trans+secret" ? `${transId}${secret}` : `${secret}${transId}`;
+  return crypto.createHash(alg === "md5" ? "md5" : "sha1").update(raw).digest("hex");
+}
+
 app.get("/api/postback/cpx", async (req, res) => {
   try {
     const {
-      status, trans_id, user_id, sub_id,
-      amount_local, amount_usd, offer_id,
-      hash: secure_hash, ip_click
+      status,
+      trans_id,
+      user_id,
+      sub_id,
+      amount_local,
+      amount_usd,
+      offer_id,
+      hash: secure_hash,
+      ip_click
     } = req.query;
 
     const secret = process.env.CPX_POSTBACK_SECRET || "";
     if (!secret) return res.status(500).send("no secret");
 
-    const expected = crypto.createHash("sha1").update(`${secret}${trans_id}`).digest("hex");
+    const expected = computeCpxHash(secret, String(trans_id || ""));
     if (!secure_hash || secure_hash.toLowerCase() !== expected.toLowerCase()) {
+      console.warn("CPX hash mismatch", { expected, got: secure_hash, trans_id });
       return res.status(403).send("bad hash");
     }
 
@@ -402,9 +513,57 @@ app.get("/api/postback/cpx", async (req, res) => {
   }
 });
 
-/* ==========================================
-   OTHER PROVIDER HOOKS (optional stubs)
-========================================== */
+/* =========================
+   ADGEM (server postback)
+========================= */
+// AdGem will call: GET /api/postback/adgem?key=SECRET&user_id=[user_id]&payout=[payout]&offer_id=[offer_id]&offer_name=[offer_name]&transaction_id=[transaction_id]
+app.get("/api/postback/adgem", async (req, res) => {
+  try {
+    const {
+      key,
+      user_id,
+      payout,
+      offer_id,
+      offer_name,
+      transaction_id,
+      trans_id // just in case they use trans_id
+    } = req.query;
+
+    // verify shared secret
+    if (!process.env.SURVEY_ADGEM_SECRET) return res.status(500).send("no secret");
+    if (key !== process.env.SURVEY_ADGEM_SECRET) return res.status(403).send("bad key");
+
+    const tx = String(transaction_id || trans_id || "");
+    const uid = String(user_id || "");
+    const usd = Number(payout || 0);
+
+    // idempotency: only first insert credits
+    const result = await db.run(
+      "INSERT OR IGNORE INTO survey_events (provider, trans_id, user_id, payout, raw) VALUES (?,?,?,?,?)",
+      "adgem", tx, uid, usd, JSON.stringify(req.query)
+    );
+
+    if (result.changes === 0) {
+      // already processed
+      return res.status(200).send("DUPLICATE");
+    }
+
+    // credit based on treatment
+    const as = classifyProvider("ADGEM");
+    const meta = { provider: "adgem", trans_id: tx, offer_id, offer_name };
+    if (as === "SURVEY") await creditSurveyUSD(uid, usd, meta);
+    else await creditOwnerUSD(uid, usd, meta);
+
+    return res.status(200).send("OK");
+  } catch (e) {
+    console.error("ADGEM postback error", e);
+    return res.status(500).send("ERR");
+  }
+});
+
+/* =========================
+   OTHER PROVIDER HOOKS (simple)
+========================= */
 app.get("/webhooks/bitlabs", async (req, res) => {
   try {
     const { user_id, transaction_id, amount } = req.query;
@@ -420,100 +579,9 @@ app.get("/webhooks/bitlabs", async (req, res) => {
   } catch { res.status(500).send("ERR"); }
 });
 
-app.get("/webhooks/adgem", async (req, res) => {
-  try {
-    const { user_id, trans_id, payout, secret } = req.query;
-    if ((secret || "") !== (process.env.ADGEM_POSTBACK_SECRET || "")) return res.status(403).send("bad secret");
-    const usd = Number(payout || 0);
-    const as = classifyProvider("ADGEM");
-    if (as === "SURVEY") await creditSurveyUSD(user_id, usd, { provider: "adgem", trans_id });
-    else await creditOwnerUSD(user_id, usd, { provider: "adgem", trans_id });
-    await db.run(
-      "INSERT OR IGNORE INTO survey_events (provider, trans_id, user_id, payout, raw) VALUES (?,?,?,?,?)",
-      "adgem", trans_id, user_id, usd, JSON.stringify(req.query)
-    );
-    res.send("OK");
-  } catch { res.status(500).send("ERR"); }
-});
-
-app.get("/webhooks/tapjoy", async (req, res) => {
-  try {
-    const { user_id, id, reward } = req.query;
-    const usd = Number(reward || 0);
-    const as = classifyProvider("TAPJOY");
-    if (as === "SURVEY") await creditSurveyUSD(user_id, usd, { provider: "tapjoy", id });
-    else await creditOwnerUSD(user_id, usd, { provider: "tapjoy", id });
-    await db.run(
-      "INSERT OR IGNORE INTO survey_events (provider, trans_id, user_id, payout, raw) VALUES (?,?,?,?,?)",
-      "tapjoy", id, user_id, usd, JSON.stringify(req.query)
-    );
-    res.send("OK");
-  } catch { res.status(500).send("ERR"); }
-});
-
-/* ==========================================
-   PAYPAL (Deposits)
-========================================== */
-async function paypalToken() {
-  const base = process.env.PAYPAL_API_BASE || "https://api-m.paypal.com";
-  const id = process.env.PAYPAL_CLIENT_ID;
-  const secret = process.env.PAYPAL_CLIENT_SECRET;
-  const { data } = await axios.post(
-    base + "/v1/oauth2/token",
-    "grant_type=client_credentials",
-    {
-      auth: { username: id, password: secret },
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    }
-  );
-  return data.access_token;
-}
-
-app.post("/api/paypal/deposit/create", authOptional, async (req, res) => {
-  try {
-    const user_id = req.user?.id || req.body.user_id;
-    const { amount_usd } = req.body || {};
-    if (!user_id || !amount_usd) return res.status(400).json({ error: "missing_params" });
-
-    const token = await paypalToken();
-    const base = process.env.PAYPAL_API_BASE || "https://api-m.paypal.com";
-    const { data } = await axios.post(
-      base + "/v2/checkout/orders",
-      { intent: "CAPTURE", purchase_units: [{ amount: { currency_code: "USD", value: String(Number(amount_usd).toFixed(2)) } }] },
-      { headers: { Authorization: "Bearer " + token } }
-    );
-    res.json(data);
-  } catch {
-    res.status(500).json({ error: "create_order_failed" });
-  }
-});
-
-app.post("/api/paypal/deposit/capture", authOptional, async (req, res) => {
-  try {
-    const user_id = req.user?.id || req.body.user_id;
-    const { order_id } = req.body || {};
-    if (!user_id || !order_id) return res.status(400).json({ error: "missing_params" });
-
-    const token = await paypalToken();
-    const base = process.env.PAYPAL_API_BASE || "https://api-m.paypal.com";
-    const { data } = await axios.post(base + `/v2/checkout/orders/${order_id}/capture`, {}, { headers: { Authorization: "Bearer " + token } });
-
-    const captures = data?.purchase_units?.[0]?.payments?.captures || [];
-    let total = 0; for (const c of captures) total += Number(c.amount?.value || 0);
-
-    await ensureUser(user_id);
-    await db.run("UPDATE wallets SET total_usd = total_usd + ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?", total, user_id);
-    await db.run("INSERT INTO ledger (user_id, type, amount, meta) VALUES (?,?,?,?)", user_id, "deposit_paypal", total, JSON.stringify({ order_id }));
-
-    res.json({ ok: true, captured_usd: total });
-  } catch {
-    res.status(500).json({ error: "capture_failed" });
-  }
-});
-
-/* ==========================================
-   WHATSAPP / YOUTUBE / RADIO / QUIZ
-========================================== */
+/* =========================
+   META WHATSAPP / YOUTUBE / RADIO / AI QUIZ
+========================= */
 app.get("/webhooks/whatsapp", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
@@ -522,7 +590,6 @@ app.get("/webhooks/whatsapp", (req, res) => {
   res.sendStatus(403);
 });
 app.post("/webhooks/whatsapp", async (_req, res) => { res.sendStatus(200); });
-
 app.post("/api/whatsapp/send", async (req, res) => {
   try {
     const token = process.env.META_ACCESS_TOKEN;
@@ -535,7 +602,7 @@ app.post("/api/whatsapp/send", async (req, res) => {
     const payload = { messaging_product: "whatsapp", to, type: "text", text: { body: text } };
     const { data } = await axios.post(url, payload, { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
     res.json({ ok: true, data });
-  } catch { res.status(500).json({ error: "whatsapp_send_failed" }); }
+  } catch (e) { console.error("WA send error:", e?.response?.data || e.message); res.status(500).json({ error: "whatsapp_send_failed" }); }
 });
 
 app.get("/api/youtube/videos", async (_req, res) => {
@@ -546,7 +613,7 @@ app.get("/api/youtube/videos", async (_req, res) => {
       params: { key, channelId, part: "snippet,id", order: "date", maxResults: 10 }
     });
     res.json(data);
-  } catch { res.status(500).json({ error: "youtube_error" }); }
+  } catch (e) { console.error("YT error:", e?.response?.data || e.message); res.status(500).json({ error: "youtube_error" }); }
 });
 
 const RADIO_HOSTS = [
@@ -596,16 +663,11 @@ app.post("/api/ai/quiz", async (req, res) => {
 
   try {
     if (!key) return res.json({ provider:"local", items: await localQuiz() });
-    const { default: OpenAI } = await import("openai");
+    const { OpenAI } = await import("openai");
     const client = new OpenAI({ apiKey: key });
     const prompt = `Create ${n} multiple-choice questions on "${topic}". Return JSON {items:[{q,options,answer}]}`;
-    const r = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.4
-    });
-    const text = r.choices?.[0]?.message?.content || "";
-    let parsed;
+    const r = await client.responses.create({ model:"gpt-4.1-mini", input: prompt, temperature:0.4 });
+    let text = r.output_text; let parsed;
     try { parsed = JSON.parse(text); }
     catch { const m = text.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : {items: await localQuiz()}; }
     res.json({ provider:"openai", items: parsed.items?.slice(0,n) || await localQuiz() });
@@ -614,17 +676,40 @@ app.post("/api/ai/quiz", async (req, res) => {
   }
 });
 
-/* ==========================================
-   HEALTH + SPA FALLBACK
-========================================== */
-app.get("/api/health", (_req, res) => res.json({ ok: true, ts: Date.now() }));
-app.get("/health", (_req, res) => res.send("ok"));
-
-app.get("*", (_req, res) => res.sendFile(path.join(FRONTEND_DIR, "index.html")));
-
-/* ==========================================
-   BOOTSTRAP
-========================================== */
-initDb().then(() => {
-  app.listen(PORT, () => console.log("EngageHubCoin running on http://localhost:" + PORT));
+/* =========================
+   Admin Tools / Diagnostics (secured)
+========================= */
+// Env snapshot (no secrets)
+app.get("/health/env", (_req, res) => {
+  res.json({
+    paypal_client_id_present: !!process.env.PAYPAL_CLIENT_ID,
+    paypal_secret_present: !!process.env.PAYPAL_CLIENT_SECRET, // boolean only
+    paypal_api_base: process.env.PAYPAL_API_BASE,
+    cpx_secret_present: !!process.env.CPX_POSTBACK_SECRET,
+    cpx_alg: process.env.CPX_HASH_ALG || "sha1",
+    cpx_format: process.env.CPX_HASH_FORMAT || "secret+trans",
+    app_base: process.env.APP_BASE_URL || "",
+  });
 });
+
+// Compute CPX hash for a trans_id (requires ADMIN_SECRET)
+app.get("/api/tools/hash/cpx", (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const trans_id = String(req.query.trans_id || "");
+  const secret = process.env.CPX_POSTBACK_SECRET || "";
+  if (!secret) return res.status(400).json({ error: "missing_secret" });
+  const hash = computeCpxHash(secret, trans_id);
+  res.json({ trans_id, hash, alg: process.env.CPX_HASH_ALG || "sha1", format: process.env.CPX_HASH_FORMAT || "secret+trans" });
+});
+
+/* =========================
+   ROOT
+========================= */
+app.get("/health", (_req, res) => res.send("ok"));
+app.get("/", (_req, res) => res.sendFile(path.join(__dirname, "../frontend/index.html")));
+app.get("/admin.html", (_req, res) => res.sendFile(path.join(__dirname, "../frontend/admin.html"))); // admin test UI
+
+const PORT = Number(process.env.PORT || 8081);
+initDb().then(() =>
+  app.listen(PORT, () => console.log("EngageHubCoin running on http://localhost:" + PORT))
+);
