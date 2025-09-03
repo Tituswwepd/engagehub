@@ -225,7 +225,7 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-// expose current user id (for CPX ext_user_id on frontend, if needed)
+// expose current user id
 app.get("/api/auth/me", authOptional, (req, res) => {
   if (!req.user) return res.json({ id: null });
   res.json({ id: req.user.id, email: req.user.email });
@@ -359,10 +359,8 @@ async function paypalToken() {
   const base = process.env.PAYPAL_API_BASE || "https://api-m.paypal.com";
   const id = process.env.PAYPAL_CLIENT_ID;
   const secret = process.env.PAYPAL_CLIENT_SECRET;
+  if (!id || !secret) throw new Error("paypal_config_missing");
 
-  if (!id || !secret) {
-    throw new Error("paypal_config_missing");
-  }
   try {
     const { data } = await axios.post(
       base + "/v1/oauth2/token",
@@ -413,7 +411,6 @@ app.post("/api/paypal/deposit/capture", authOptional, async (req, res) => {
     if (!user_id || !order_id) return res.status(400).json({ error: "missing_params" });
 
     const token = await paypalToken();
-    the
     const base = process.env.PAYPAL_API_BASE || "https://api-m.paypal.com";
     const { data } = await axios.post(
       base + `/v2/checkout/orders/${order_id}/capture`,
@@ -526,10 +523,9 @@ app.get("/api/postback/adgem", async (req, res) => {
       offer_id,
       offer_name,
       transaction_id,
-      trans_id // just in case they use trans_id
+      trans_id
     } = req.query;
 
-    // verify shared secret
     if (!process.env.SURVEY_ADGEM_SECRET) return res.status(500).send("no secret");
     if (key !== process.env.SURVEY_ADGEM_SECRET) return res.status(403).send("bad key");
 
@@ -537,18 +533,13 @@ app.get("/api/postback/adgem", async (req, res) => {
     const uid = String(user_id || "");
     const usd = Number(payout || 0);
 
-    // idempotency: only first insert credits
     const result = await db.run(
       "INSERT OR IGNORE INTO survey_events (provider, trans_id, user_id, payout, raw) VALUES (?,?,?,?,?)",
       "adgem", tx, uid, usd, JSON.stringify(req.query)
     );
 
-    if (result.changes === 0) {
-      // already processed
-      return res.status(200).send("DUPLICATE");
-    }
+    if (result.changes === 0) return res.status(200).send("DUPLICATE");
 
-    // credit based on treatment
     const as = classifyProvider("ADGEM");
     const meta = { provider: "adgem", trans_id: tx, offer_id, offer_name };
     if (as === "SURVEY") await creditSurveyUSD(uid, usd, meta);
@@ -562,21 +553,49 @@ app.get("/api/postback/adgem", async (req, res) => {
 });
 
 /* =========================
-   OTHER PROVIDER HOOKS (simple)
+   BITLABS (secure redirect + webhook)
 ========================= */
+// Frontend uses this route; we add the token here so it is not visible in client code.
+app.get("/surveys/bitlabs", authOptional, (req, res) => {
+  const uid = req.user?.id || req.query.user_id;
+  if (!uid) return res.status(400).send("missing user");
+  const base  = process.env.BITLABS_BASE_URL || "https://wall.bitlabs.ai";
+  const token = process.env.BITLABS_APP_API_TOKEN;
+  if (!token) return res.status(500).send("missing BitLabs token");
+  return res.redirect(`${base}/?uid=${encodeURIComponent(uid)}&token=${encodeURIComponent(token)}`);
+});
+
+// Reward webhook from BitLabs
 app.get("/webhooks/bitlabs", async (req, res) => {
   try {
-    const { user_id, transaction_id, amount } = req.query;
+    const { key, user_id, transaction_id, amount } = req.query;
+
+    // optional shared-secret check
+    if (process.env.BITLABS_WEBHOOK_SECRET && key !== process.env.BITLABS_WEBHOOK_SECRET) {
+      return res.status(403).send("bad key");
+    }
+
+    const uid = String(user_id || "");
+    const tx  = String(transaction_id || "");
     const usd = Number(amount || 0);
-    const as = classifyProvider("BITLABS");
-    if (as === "SURVEY") await creditSurveyUSD(user_id, usd, { provider: "bitlabs", transaction_id });
-    else await creditOwnerUSD(user_id, usd, { provider: "bitlabs", transaction_id });
-    await db.run(
+
+    // idempotent insert (prevents double credit)
+    const result = await db.run(
       "INSERT OR IGNORE INTO survey_events (provider, trans_id, user_id, payout, raw) VALUES (?,?,?,?,?)",
-      "bitlabs", transaction_id, user_id, usd, JSON.stringify(req.query)
+      "bitlabs", tx, uid, usd, JSON.stringify(req.query)
     );
+    if (result.changes === 0) return res.status(200).send("DUPLICATE");
+
+    const as = classifyProvider("BITLABS");
+    const meta = { provider: "bitlabs", transaction_id: tx };
+    if (as === "SURVEY") await creditSurveyUSD(uid, usd, meta);
+    else await creditOwnerUSD(uid, usd, meta);
+
     res.send("OK");
-  } catch { res.status(500).send("ERR"); }
+  } catch (e) {
+    console.error("BITLABS webhook error:", e);
+    res.status(500).send("ERR");
+  }
 });
 
 /* =========================
@@ -677,13 +696,12 @@ app.post("/api/ai/quiz", async (req, res) => {
 });
 
 /* =========================
-   Admin Tools / Diagnostics (secured)
+   Admin Tools / Diagnostics
 ========================= */
-// Env snapshot (no secrets)
 app.get("/health/env", (_req, res) => {
   res.json({
     paypal_client_id_present: !!process.env.PAYPAL_CLIENT_ID,
-    paypal_secret_present: !!process.env.PAYPAL_CLIENT_SECRET, // boolean only
+    paypal_secret_present: !!process.env.PAYPAL_CLIENT_SECRET,
     paypal_api_base: process.env.PAYPAL_API_BASE,
     cpx_secret_present: !!process.env.CPX_POSTBACK_SECRET,
     cpx_alg: process.env.CPX_HASH_ALG || "sha1",
@@ -692,7 +710,6 @@ app.get("/health/env", (_req, res) => {
   });
 });
 
-// Compute CPX hash for a trans_id (requires ADMIN_SECRET)
 app.get("/api/tools/hash/cpx", (req, res) => {
   if (!requireAdmin(req, res)) return;
   const trans_id = String(req.query.trans_id || "");

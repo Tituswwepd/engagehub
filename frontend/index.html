@@ -105,7 +105,7 @@
       background:linear-gradient(135deg, rgba(124,58,237,.55), rgba(34,197,94,.45), rgba(99,102,241,.55));
       -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
       -webkit-mask-composite:xor; mask-composite:exclude; opacity:.08;
-      pointer-events:none; /* <-- critical: do not block clicks */
+      pointer-events:none;
     }
     .span-12{grid-column:span 12}
     .span-8{grid-column:span 8}
@@ -160,24 +160,16 @@
     .btn-x{background:#000; color:#fff; border:1px solid #222}
     .btn-wa{background:#25D366; color:#111}
 
-    /* ===== Mobile: off-canvas sidebar (kept hidden unless opened) ===== */
+    /* ===== Mobile: off-canvas sidebar ===== */
     @media (max-width: 1080px){
       .span-8,.span-6,.span-4{grid-column:span 12}
       .app{grid-template-columns:1fr}
-
       aside.sidebar{
-        position:fixed;
-        inset:72px 0 0 auto;
-        width:84vw; max-width:360px;
-        transform: translateX(-110%);      /* hidden by default */
-        transition: transform .25s ease;
-        z-index: 55;
-        pointer-events: none;               /* don't block page when hidden */
+        position:fixed; inset:72px 0 0 auto; width:84vw; max-width:360px;
+        transform: translateX(-110%); transition: transform .25s ease;
+        z-index: 55; pointer-events: none;
       }
-      body.nav-open aside.sidebar{
-        transform: translateX(0);
-        pointer-events: auto;
-      }
+      body.nav-open aside.sidebar{ transform: translateX(0); pointer-events: auto; }
       .hamburger{display:inline-flex}
     }
   </style>
@@ -194,7 +186,6 @@
     <div class="authchip" id="auth_status">guest</div>
   </header>
 
-  <!-- Tap-to-close overlay for mobile nav -->
   <div class="overlay" id="overlay"></div>
 
   <!-- Sidebar -->
@@ -219,7 +210,6 @@
     </nav>
   </aside>
 
-  <!-- Main content -->
   <main class="main">
 
     <!-- HERO / DASHBOARD TOP -->
@@ -441,7 +431,7 @@
   </main>
 </div>
 
-<!-- Optional admin shortcut; ignore if missing -->
+<!-- Optional admin shortcut -->
 <script>
 try{
   const s=document.createElement('script'); s.src='/admin-shortcut.js'; s.defer=true; document.head.appendChild(s);
@@ -572,8 +562,8 @@ async function sendWhatsApp(useSecondary=false){
 
 /* ===== Surveys ===== */
 const SURVEY = {
+  // CPX and others can stay as direct links (replace with your IDs when ready)
   cpx:    (uid) => `https://offers.cpx-research.com/index.php?app_id=YOUR_CPX_APP_ID&ext_user_id=${encodeURIComponent(uid)}`,
-  bitlabs:(uid) => `https://web.bitlabs.ai/?uid=${encodeURIComponent(uid)}&token=YOUR_BITLABS_PUBLISHABLE_TOKEN`,
   adgem:  (uid) => `https://wall.adgem.com/wall/api?appid=YOUR_ADGEM_APP_ID&playerid=${encodeURIComponent(uid)}`,
   tapjoy: (uid) => `https://www.tapjoy.com/offerwall?appid=YOUR_TAPJOY_APP_ID&user_id=${encodeURIComponent(uid)}`,
   offertoro:(uid)=> `https://www.offertoro.com/ifr/show/YOUR_PUBLISHER_ID/${encodeURIComponent(uid)}/YOUR_PUBLIC_HASH`,
@@ -581,7 +571,13 @@ const SURVEY = {
   ayet:(uid)=> `https://www.ayetstudios.com/offerwall/?appid=YOUR_AYET_APP_ID&userid=${encodeURIComponent(uid)}`,
   kiwiwall:(uid)=> `https://www.kiwiwall.com/wall/YOUR_SITE_ID/${encodeURIComponent(uid)}`,
   offerdaddy:(uid)=> `https://offerdaddy.com/wall/YOUR_SITE_ID/${encodeURIComponent(uid)}`,
-  wannads:(uid)=> `https://wall.wannads.com/wall?apiKey=YOUR_WANNADS_PUBLISHABLE_KEY&userId=${encodeURIComponent(uid)}`
+  wannads:(uid)=> `https://wall.wannads.com/wall?apiKey=YOUR_WANNADS_PUBLISHABLE_KEY&userId=${encodeURIComponent(uid)}`,
+
+  // ✅ BitLabs via your secure server redirect (no token exposed on client)
+  bitlabs:(uid) => {
+    // If logged in (JWT), the server will read user id from the token; otherwise pass ?user_id=
+    return AUTH.token ? `/surveys/bitlabs` : `/surveys/bitlabs?user_id=${encodeURIComponent(uid)}`;
+  }
 };
 const SURVEY_LIST = [
   ["cpx","CPX"],["bitlabs","BitLabs"],["adgem","AdGem"],["tapjoy","Tapjoy"],
