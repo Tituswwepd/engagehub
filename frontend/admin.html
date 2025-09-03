@@ -1,126 +1,275 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Admin • EngageHubCoin</title>
   <style>
-    body{font-family:Inter,system-ui;background:#0b1220;color:#e5e7eb;margin:0;padding:16px}
+    :root{
+      --bg:#0b1220; --panel:#0f172a; --border:#1f2937; --text:#e6eef9; --muted:#9fb1d1;
+      --accent:#7c3aed; --brand:#ffd94a;
+    }
+    *{box-sizing:border-box}
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,Ubuntu,Arial;background:radial-gradient(1200px 800px at 80% -10%, rgba(124,58,237,.15), transparent),
+                         radial-gradient(1000px 700px at -10% 20%, rgba(56,189,248,.12), transparent),
+                         linear-gradient(160deg,#0c1430,#0b1220);
+         color:var(--text); margin:0; padding:16px}
     .wrap{max-width:1100px;margin:0 auto}
-    .card{background:#0f172a;border:1px solid #1f2937;border-radius:12px;padding:16px;margin:12px 0}
-    input,button,select,textarea{padding:10px;border-radius:10px;border:1px solid #1f2937;background:#0b1220;color:#e5e7eb}
-    button.primary{background:#FFD700;color:#111827;border:none;font-weight:900;cursor:pointer}
-    table{width:100%;border-collapse:collapse}
-    th,td{border-bottom:1px solid #1f2937;padding:8px;text-align:left;vertical-align:top}
-    .muted{color:#9ca3af}
-    code{background:#111827;padding:2px 6px;border-radius:6px}
+    h1{margin:0 0 14px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+    .card{background:linear-gradient(180deg, rgba(12,19,40,.9), rgba(10,17,34,.92));
+          border:1px solid var(--border); border-radius:14px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.45); position:relative}
+    .card::before{content:""; position:absolute; inset:-1px; border-radius:14px; padding:1px;
+      background:linear-gradient(135deg, rgba(124,58,237,.5), rgba(34,197,94,.35), rgba(99,102,241,.45));
+      -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude; opacity:.07; pointer-events:none}
+    .row{display:flex; gap:10px; flex-wrap:wrap; margin-top:8px}
+    input,button,select,textarea{padding:11px;border-radius:10px;border:1px solid var(--border);background:#0b1430;color:var(--text)}
+    input,select,textarea{width:100%}
+    textarea{resize:vertical}
+    button{cursor:pointer}
+    .btn{background:var(--accent); color:#fff; border:none; font-weight:800}
+    .btn.gold{background:linear-gradient(135deg,#ffd94a,#facc15); color:#111; border:none; font-weight:900}
+    .btn.ghost{background:transparent; border:1px solid var(--border); color:var(--muted)}
+    .muted{color:var(--muted); font-size:12px}
+    pre{background:#0a1430;border:1px solid var(--border);border-radius:10px;padding:10px;white-space:pre-wrap;overflow:auto}
+    table{width:100%;border-collapse:collapse;margin-top:8px}
+    th,td{border-bottom:1px solid var(--border);padding:8px;text-align:left;vertical-align:top}
+    a{color:#dbeafe}
+    small{color:var(--muted)}
   </style>
 </head>
 <body>
 <div class="wrap">
-  <h2>Admin</h2>
+  <h1>Admin • EngageHubCoin</h1>
 
-  <div class="card">
-    <h3>Lookup User</h3>
-    <div>
-      <input id="adm_key" placeholder="ADMIN_SECRET"/>
-      <input id="adm_uid" placeholder="user id e.g. facebook:123"/>
-      <button class="primary" onclick="lookup()">Fetch</button>
+  <div class="grid">
+
+    <!-- Env Snapshot -->
+    <div class="card">
+      <h3>Env Snapshot</h3>
+      <div class="row">
+        <button class="btn" onclick="getEnv()">Load</button>
+        <a class="btn ghost" href="/health" target="_blank" rel="noopener">/health</a>
+        <a class="btn ghost" href="/api/config/public" target="_blank" rel="noopener">/api/config/public</a>
+      </div>
+      <pre id="env_out" class="muted"></pre>
     </div>
-    <pre id="adm_out" class="muted" style="white-space:pre-wrap"></pre>
+
+    <!-- Lookup User -->
+    <div class="card">
+      <h3>Lookup User</h3>
+      <div class="row">
+        <input id="adm_key" placeholder="ADMIN_SECRET"/>
+        <input id="adm_uid" placeholder="user id (email or custom id)"/>
+      </div>
+      <div class="row">
+        <button class="btn gold" onclick="lookup()">Fetch</button>
+      </div>
+      <pre id="adm_out" class="muted"></pre>
+    </div>
+
+    <!-- Pending Withdraw Requests -->
+    <div class="card">
+      <h3>Pending Withdraw Requests</h3>
+      <div class="row">
+        <input id="adm_key2" placeholder="ADMIN_SECRET"/>
+        <button class="btn gold" onclick="listReqs()">Refresh</button>
+      </div>
+      <div id="reqs" class="muted" style="margin-top:8px"></div>
+    </div>
+
+    <!-- PayPal Tests -->
+    <div class="card">
+      <h3>PayPal — Create Order</h3>
+      <small class="muted">Make sure your Render env has PAYPAL_CLIENT_ID/SECRET and the correct PAYPAL_API_BASE.</small>
+      <div class="row">
+        <input id="pp_user" placeholder="user id (e.g. test-user)"/>
+        <input id="pp_amt" placeholder="amount USD" value="5.00"/>
+      </div>
+      <div class="row">
+        <button class="btn" onclick="createOrder()">Create Order</button>
+      </div>
+      <pre id="pp_create_out" class="muted"></pre>
+
+      <h4 style="margin-top:12px">PayPal — Capture Order</h4>
+      <div class="row">
+        <input id="pp_order" placeholder="order id from Create"/>
+      </div>
+      <div class="row">
+        <button class="btn gold" onclick="captureOrder()">Capture</button>
+      </div>
+      <pre id="pp_capture_out" class="muted"></pre>
+    </div>
+
+    <!-- CPX Tools -->
+    <div class="card">
+      <h3>CPX — Hash & Simulate Postback</h3>
+      <small class="muted">Requires ADMIN_SECRET. Hash uses CPX_HASH_ALG + CPX_HASH_FORMAT set in env.</small>
+      <div class="row">
+        <input id="adm_secret" placeholder="ADMIN_SECRET"/>
+        <input id="cpx_trans" placeholder="transaction id (e.g. tx_12345)"/>
+      </div>
+      <div class="row">
+        <button class="btn" onclick="computeHash()">Compute Hash</button>
+      </div>
+      <pre id="cpx_hash_out" class="muted"></pre>
+
+      <h4 style="margin-top:12px">Simulate Postback</h4>
+      <small class="muted">Will credit the user if status=1 and hash matches.</small>
+      <div class="row">
+        <input id="cpx_user" placeholder="user id" value="test-user"/>
+        <input id="cpx_amt" placeholder="amount USD" value="0.55"/>
+      </div>
+      <div class="row">
+        <button class="btn gold" onclick="simulateCPX()">Send Postback</button>
+      </div>
+      <pre id="cpx_sim_out" class="muted"></pre>
+    </div>
+
   </div>
 
-  <div class="card">
-    <h3>Pending Withdraw Requests</h3>
-    <div>
-      <input id="adm_key2" placeholder="ADMIN_SECRET"/>
-      <button class="primary" onclick="listReqs()">Refresh</button>
-    </div>
-    <div id="reqs"></div>
-  </div>
-
-  <div class="card">
-    <h3>Data Buyers (20 slots)</h3>
-    <div class="muted">Update <code>status</code> (planned | active | paused) and <code>notes</code>.</div>
-    <div>
-      <input id="adm_key3" placeholder="ADMIN_SECRET"/>
-      <button class="primary" onclick="loadBuyers()">Load</button>
-    </div>
-    <div id="buyers"></div>
-  </div>
-
-  <div class="card">
-    <h3>Webhook Endpoints (copy to networks)</h3>
-    <div class="muted">Each provider hits a GET URL with your chosen params. You may add a <code>?secret=YOUR_SECRET</code> if configured.</div>
-    <ul>
-      <li>/webhooks/cpx</li><li>/webhooks/bitlabs</li><li>/webhooks/adgem</li><li>/webhooks/tapjoy</li>
-      <li>/webhooks/offertoro</li><li>/webhooks/persona.ly</li><li>/webhooks/ayet</li><li>/webhooks/kiwiwall</li>
-      <li>/webhooks/offerdaddy</li><li>/webhooks/wannads</li><li>/webhooks/clickdealer</li><li>/webhooks/adwork</li>
-      <li>/webhooks/maxbounty</li><li>/webhooks/cpalead</li><li>/webhooks/cj</li><li>/webhooks/rakuten</li>
-      <li>/webhooks/impact</li><li>/webhooks/flexoffers</li><li>/webhooks/adscend</li><li>/webhooks/revenueuniverse</li>
-      <li>/webhooks/adgate</li><li>/webhooks/adaction</li>
-    </ul>
-    <div class="muted">Typical params: <code>?user_id=USER&trans_id=UNIQUE&payout=1.25&secret=YOUR_SECRET</code></div>
+  <div style="margin:14px 0 0">
+    <small class="muted">Tip: Open your public API JSONs in a new tab to quickly verify config is present.</small>
   </div>
 </div>
 
 <script>
-async function lookup(){
-  const key=document.getElementById('adm_key').value.trim();
-  const uid=document.getElementById('adm_uid').value.trim();
-  const r=await fetch('/api/admin/user/'+encodeURIComponent(uid)+'?key='+encodeURIComponent(key));
-  const j=await r.json(); document.getElementById('adm_out').textContent=JSON.stringify(j,null,2);
-}
-async function listReqs(){
-  const key=document.getElementById('adm_key2').value.trim();
-  const r=await fetch('/api/admin/withdraw/requests?key='+encodeURIComponent(key));
-  const j=await r.json();
-  const box=document.getElementById('reqs');
-  box.innerHTML=(j.items||[]).map(it=>`
-    <div style="border:1px solid #1f2937;border-radius:10px;padding:8px;margin:6px 0">
-      <b>#${it.id}</b> · ${it.user_id} · $${it.amount.toFixed(2)} → ${it.email}
-      <div class="muted">status: ${it.status}</div>
-      <button onclick="pay(${it.id})" class="primary">Pay via PayPal</button>
-    </div>
-  `).join('') || '<div class="muted">None.</div>';
-}
-async function pay(id){
-  const key=document.getElementById('adm_key2').value.trim();
-  const r=await fetch('/api/admin/payouts/paypal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({admin_secret:key, request_id:id})});
-  const j=await r.json(); alert(j.ok?'Paid ✅':'Error: '+(j.error||'failed'));
-  listReqs();
+const pretty = (o) => JSON.stringify(o, null, 2);
+
+/* Env Snapshot */
+async function getEnv(){
+  try{
+    const r = await fetch('/health/env');
+    const j = await r.json();
+    document.getElementById('env_out').textContent = pretty(j);
+  }catch(e){
+    document.getElementById('env_out').textContent = 'Failed to load env: ' + (e.message||e);
+  }
 }
 
-/* Data buyers */
-async function loadBuyers(){
-  const r=await fetch('/api/data-buyers'); const j=await r.json();
-  const box=document.getElementById('buyers');
-  box.innerHTML = `
-    <table>
-      <thead><tr><th>ID</th><th>Name</th><th>Homepage</th><th>Status</th><th>Notes</th><th>Save</th></tr></thead>
-      <tbody>
-      ${ (j.items||[]).map(b=>`
-        <tr>
-          <td>${b.id}</td>
-          <td>${b.name}</td>
-          <td><a href="${b.homepage}" target="_blank">${b.homepage}</a></td>
-          <td>
-            <select id="st_${b.id}">
-              ${["planned","active","paused"].map(s=>`<option ${s===b.status?"selected":""}>${s}</option>`).join('')}
-            </select>
-          </td>
-          <td><textarea id="nt_${b.id}" rows="2" style="width:100%">${b.notes||""}</textarea></td>
-          <td><button onclick="saveBuyer(${b.id})">Save</button></td>
-        </tr>
-      `).join('') }
-      </tbody>
-    </table>`;
+/* Lookup User (wallet + ledger) */
+async function lookup(){
+  const key = document.getElementById('adm_key').value.trim();
+  const uid = document.getElementById('adm_uid').value.trim();
+  if(!key || !uid){ document.getElementById('adm_out').textContent = 'Enter ADMIN_SECRET and user id.'; return; }
+  try{
+    const r = await fetch('/api/admin/user/'+encodeURIComponent(uid)+'?key='+encodeURIComponent(key));
+    const j = await r.json();
+    document.getElementById('adm_out').textContent = pretty(j);
+  }catch(e){
+    document.getElementById('adm_out').textContent = 'Failed: ' + (e.message||e);
+  }
 }
-async function saveBuyer(id){
-  const key=document.getElementById('adm_key3').value.trim();
-  const status=document.getElementById('st_'+id).value;
-  const notes=document.getElementById('nt_'+id).value;
-  const r=await fetch('/api/admin/data-buyers/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({admin_secret:key,id,status,notes})});
-  const j=await r.json(); alert(j.ok?'Saved ✅':'Error');
+
+/* Withdraw Requests (list + pay) */
+async function listReqs(){
+  const key = document.getElementById('adm_key2').value.trim();
+  const box = document.getElementById('reqs');
+  if(!key){ box.textContent = 'Enter ADMIN_SECRET.'; return; }
+  box.textContent = 'Loading...';
+  try{
+    const r = await fetch('/api/admin/withdraw/requests?key='+encodeURIComponent(key));
+    const j = await r.json();
+    const items = j.items||[];
+    box.innerHTML = items.length ? items.map(it => `
+      <div style="border:1px solid var(--border);border-radius:10px;padding:10px;margin:7px 0;background:#0b1430">
+        <div><b>#${it.id}</b> · <b>${it.user_id}</b> · $${Number(it.amount||0).toFixed(2)} → ${it.email}</div>
+        <div class="muted">status: ${it.status} • ${it.created_at||''}</div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn gold" onclick="pay(${it.id})">Pay via PayPal</button>
+        </div>
+      </div>
+    `).join('') : '<div class="muted">None pending.</div>';
+  }catch(e){
+    box.textContent = 'Failed: ' + (e.message||e);
+  }
+}
+async function pay(id){
+  const key = document.getElementById('adm_key2').value.trim();
+  if(!key){ alert('Enter ADMIN_SECRET'); return; }
+  try{
+    const r = await fetch('/api/admin/payouts/paypal',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ admin_secret:key, request_id:id })
+    });
+    const j = await r.json();
+    alert(j.ok ? 'Paid ✅' : ('Error: ' + (j.error||'failed')));
+    listReqs();
+  }catch(e){
+    alert('Failed: ' + (e.message||e));
+  }
+}
+
+/* PayPal: Create → Capture */
+async function createOrder(){
+  const user = document.getElementById('pp_user').value.trim() || 'test-user';
+  const amount = Number(document.getElementById('pp_amt').value || 0);
+  const out = document.getElementById('pp_create_out');
+  out.textContent = 'Creating...';
+  try{
+    const r = await fetch('/api/paypal/deposit/create', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ user_id:user, amount_usd: amount })
+    });
+    const j = await r.json();
+    out.textContent = pretty(j);
+    if (j?.id) document.getElementById('pp_order').value = j.id;
+  }catch(e){
+    out.textContent = 'Failed: ' + (e.message||e);
+  }
+}
+async function captureOrder(){
+  const user = document.getElementById('pp_user').value.trim() || 'test-user';
+  const order_id = document.getElementById('pp_order').value.trim();
+  const out = document.getElementById('pp_capture_out');
+  if(!order_id){ out.textContent = 'Enter order id from Create.'; return; }
+  out.textContent = 'Capturing...';
+  try{
+    const r = await fetch('/api/paypal/deposit/capture', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ user_id:user, order_id })
+    });
+    const j = await r.json();
+    out.textContent = pretty(j);
+  }catch(e){
+    out.textContent = 'Failed: ' + (e.message||e);
+  }
+}
+
+/* CPX: Hash + Simulate */
+async function computeHash(){
+  const admin_secret = document.getElementById('adm_secret').value.trim();
+  const trans_id = document.getElementById('cpx_trans').value.trim();
+  const out = document.getElementById('cpx_hash_out');
+  if(!admin_secret || !trans_id){ out.textContent = 'Enter ADMIN_SECRET and trans_id'; return; }
+  out.textContent = 'Computing...';
+  try{
+    const r = await fetch(`/api/tools/hash/cpx?admin_secret=${encodeURIComponent(admin_secret)}&trans_id=${encodeURIComponent(trans_id)}`);
+    const j = await r.json();
+    out.textContent = pretty(j);
+  }catch(e){
+    out.textContent = 'Failed: ' + (e.message||e);
+  }
+}
+async function simulateCPX(){
+  const trans_id = document.getElementById('cpx_trans').value.trim();
+  const user_id = document.getElementById('cpx_user').value.trim() || 'test-user';
+  const amount_usd = document.getElementById('cpx_amt').value.trim() || '0.55';
+  const out = document.getElementById('cpx_sim_out');
+
+  let h = null;
+  try { h = JSON.parse(document.getElementById('cpx_hash_out').textContent||'{}').hash; } catch(e){}
+  if(!trans_id || !h){ out.textContent = 'Compute hash first.'; return; }
+
+  out.textContent = 'Sending...';
+  try{
+    const url = `/api/postback/cpx?status=1&trans_id=${encodeURIComponent(trans_id)}&user_id=${encodeURIComponent(user_id)}&amount_usd=${encodeURIComponent(amount_usd)}&hash=${encodeURIComponent(h)}`;
+    const r = await fetch(url);
+    const text = await r.text();
+    out.textContent = `HTTP ${r.status}: ${text}`;
+  }catch(e){
+    out.textContent = 'Failed: ' + (e.message||e);
+  }
 }
 </script>
 </body>
