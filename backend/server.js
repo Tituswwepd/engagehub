@@ -25,6 +25,14 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "../frontend")));
 
 /* =========================
+   SECURITY / JWT SECRET
+========================= */
+const JWT_SECRET = (process.env.JWT_SECRET || "fc67188214df0bbf5763cbd7ed0fd845").trim();
+if (!process.env.JWT_SECRET) {
+  console.warn("[WARN] Using built-in JWT fallback secret. Set JWT_SECRET in .env for production.");
+}
+
+/* =========================
    DB INIT
 ========================= */
 let db;
@@ -120,7 +128,7 @@ async function ensureUser(user_id, name = "User") {
 }
 
 function withdrawableFromWallet(w) {
-  const cap = 0.5 * Number(w.survey_usd_total || 0); // 50% of approved survey total
+  const cap = 0.5 * Number(w.survey_usd_total || 0); // 50% cap
   const used = Number(w.survey_usd_withdrawn || 0);
   return Math.max(0, cap - used);
 }
@@ -170,7 +178,7 @@ function classifyProvider(p) {
    JWT AUTH
 ========================= */
 function signJwt(payload) {
-  return jwt.sign(payload, process.env.JWT_SECRET, {
+  return jwt.sign(payload, JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || "1h",
   });
 }
@@ -178,7 +186,7 @@ function signJwt(payload) {
 function authOptional(req, _res, next) {
   const auth = req.headers["authorization"];
   if (auth?.startsWith("Bearer ")) {
-    try { req.user = jwt.verify(auth.split(" ")[1], process.env.JWT_SECRET); } catch {}
+    try { req.user = jwt.verify(auth.split(" ")[1], JWT_SECRET); } catch {}
   }
   next();
 }
@@ -187,7 +195,7 @@ function authRequired(req, res, next) {
   const auth = req.headers["authorization"];
   if (!auth) return res.status(401).json({ error: "no_token" });
   try {
-    req.user = jwt.verify(auth.split(" ")[1], process.env.JWT_SECRET);
+    req.user = jwt.verify(auth.split(" ")[1], JWT_SECRET);
     next();
   } catch { return res.status(401).json({ error: "invalid_token" }); }
 }
@@ -197,8 +205,9 @@ function authRequired(req, res, next) {
 ========================= */
 app.post("/api/auth/register", async (req, res) => {
   try {
-    const { email, password, name } = req.body || {};
+    let { email, password, name } = req.body || {};
     if (!email || !password) return res.status(400).json({ error: "missing_fields" });
+    email = String(email).trim().toLowerCase();
     const hash = await bcrypt.hash(password, 10);
     await db.run("INSERT INTO users (id,email,password_hash,name) VALUES (?,?,?,?)", email, email, hash, name || "");
     await ensureUser(email, name || "User");
@@ -212,10 +221,11 @@ app.post("/api/auth/register", async (req, res) => {
 
 app.post("/api/auth/login", async (req, res) => {
   try {
-    const { email, password } = req.body || {};
+    let { email, password } = req.body || {};
+    email = String(email || "").trim().toLowerCase();
     const user = await db.get("SELECT * FROM users WHERE email=?", email);
     if (!user) return res.status(400).json({ error: "invalid_credentials" });
-    const ok = await bcrypt.compare(password, user.password_hash || "");
+    const ok = await bcrypt.compare(password || "", user.password_hash || "");
     if (!ok) return res.status(400).json({ error: "invalid_credentials" });
     const token = signJwt({ id: user.id, email: user.email });
     res.json({ token });
@@ -225,7 +235,7 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-// expose current user id (for CPX ext_user_id on frontend, if needed)
+// expose current user id (for client checks)
 app.get("/api/auth/me", authOptional, (req, res) => {
   if (!req.user) return res.json({ id: null });
   res.json({ id: req.user.id, email: req.user.email });
@@ -246,20 +256,20 @@ app.post("/api/auth/forgot", async (req, res) => {
     const { email } = req.body || {};
     if (!email) return res.status(400).json({ error: "missing_email" });
 
-    const user = await db.get("SELECT * FROM users WHERE email=?", email);
+    const user = await db.get("SELECT * FROM users WHERE email=?", String(email).trim().toLowerCase());
     if (!user) return res.json({ ok: true });
 
     const token = Math.random().toString(36).slice(2);
     const ttlMs = Number(process.env.RESET_TOKEN_MIN || 30) * 60 * 1000;
     const expiresAt = Date.now() + ttlMs;
 
-    await db.run("INSERT INTO reset_tokens (email, token, expires_at) VALUES (?,?,?)", email, token, expiresAt);
+    await db.run("INSERT INTO reset_tokens (email, token, expires_at) VALUES (?,?,?)", user.email, token, expiresAt);
 
-    const link = `${process.env.APP_BASE_URL || ""}/reset.html?token=${token}&email=${encodeURIComponent(email)}`;
+    const link = `${process.env.APP_BASE_URL || ""}/reset.html?token=${token}&email=${encodeURIComponent(user.email)}`;
 
     await mailer.sendMail({
       from: process.env.SMTP_FROM,
-      to: email,
+      to: user.email,
       subject: "Password Reset - EngageHubCoin",
       text: `Click the link to reset your password: ${link}`,
       html: `<p>Click below to reset your password:</p><p><a href="${link}">${link}</a></p>`,
@@ -275,13 +285,13 @@ app.post("/api/auth/forgot", async (req, res) => {
 app.post("/api/auth/reset", async (req, res) => {
   try {
     const { email, token, password } = req.body || {};
-    const row = await db.get("SELECT * FROM reset_tokens WHERE email=? AND token=?", email, token);
+    const row = await db.get("SELECT * FROM reset_tokens WHERE email=? AND token=?", String(email||"").toLowerCase(), token);
     if (!row) return res.status(400).json({ error: "invalid_token" });
     if (Date.now() > Number(row.expires_at)) return res.status(400).json({ error: "expired_token" });
 
     const hash = await bcrypt.hash(password, 10);
-    await db.run("UPDATE users SET password_hash=? WHERE email=?", hash, email);
-    await db.run("DELETE FROM reset_tokens WHERE email=?", email);
+    await db.run("UPDATE users SET password_hash=? WHERE email=?", hash, String(email||"").toLowerCase());
+    await db.run("DELETE FROM reset_tokens WHERE email=?", String(email||"").toLowerCase());
 
     res.json({ ok: true });
   } catch (e) {
@@ -304,39 +314,36 @@ app.get("/api/config/public", (_req, res) => {
 });
 
 /* =========================
-   WALLET (JWT-first; guest fallback route retained)
+   WALLET (JWT REQUIRED)
 ========================= */
-app.get("/api/wallet", authOptional, async (req, res) => {
+app.get("/api/wallet", authRequired, async (req, res) => {
   try {
-    const user_id = req.user?.id || req.query.user_id || req.headers["x-user-id"];
-    if (!user_id) return res.status(400).json({ error: "missing_user" });
+    const user_id = req.user.id;
     await ensureUser(user_id);
     const w = await db.get("SELECT * FROM wallets WHERE user_id=?", user_id);
-    const withdrawable = withdrawableFromWallet(w);
-    res.json({ user_id, available_to_withdraw_usd: Number(withdrawable.toFixed(2)) });
+    const withdrawable = withdrawableFromWallet(w || {});
+    res.json({ user_id, available_to_withdraw_usd: Number((withdrawable || 0).toFixed(2)) });
   } catch (e) {
     console.error("Wallet error:", e?.message);
     res.status(500).json({ error: "wallet_failed" });
   }
 });
 
-app.get("/api/wallet/:user_id", async (req, res) => {
-  req.query.user_id = req.params.user_id;
-  return app._router.handle(req, res);
-});
+// legacy path now blocked (enforces login)
+app.get("/api/wallet/:user_id", (_req, res) => res.status(401).json({ error: "login_required" }));
 
 /* =========================
-   WITHDRAW REQUESTS
+   WITHDRAW REQUESTS (JWT)
 ========================= */
-app.post("/api/withdraw/request", authOptional, async (req, res) => {
+app.post("/api/withdraw/request", authRequired, async (req, res) => {
   try {
-    const user_id = req.user?.id || req.body.user_id;
+    const user_id = req.user.id;
     const { email, amount_usd } = req.body || {};
-    if (!user_id || !email || !amount_usd) return res.status(400).json({ error: "missing_params" });
+    if (!email || !amount_usd) return res.status(400).json({ error: "missing_params" });
 
     await ensureUser(user_id);
     const w = await db.get("SELECT * FROM wallets WHERE user_id=?", user_id);
-    const avail = withdrawableFromWallet(w);
+    const avail = withdrawableFromWallet(w || {});
     const amt = Number(amount_usd);
 
     if (amt < Number(process.env.MIN_WITHDRAW_USD || "0"))
@@ -344,7 +351,7 @@ app.post("/api/withdraw/request", authOptional, async (req, res) => {
     if (amt > avail + 1e-9)
       return res.status(400).json({ error: "exceeds_available" });
 
-    await db.run("INSERT INTO withdraw_requests (user_id,email,amount) VALUES (?,?,?)", user_id, email, amt);
+    await db.run("INSERT INTO withdraw_requests (user_id,email,amount) VALUES (?,?,?)", user_id, String(email).toLowerCase(), amt);
     res.json({ ok: true });
   } catch (e) {
     console.error("Withdraw request error:", e?.message);
@@ -353,7 +360,7 @@ app.post("/api/withdraw/request", authOptional, async (req, res) => {
 });
 
 /* =========================
-   PAYPAL (better diagnostics)
+   PAYPAL (JWT)
 ========================= */
 async function paypalToken() {
   const base = process.env.PAYPAL_API_BASE || "https://api-m.paypal.com";
@@ -380,11 +387,11 @@ async function paypalToken() {
   }
 }
 
-app.post("/api/paypal/deposit/create", authOptional, async (req, res) => {
+app.post("/api/paypal/deposit/create", authRequired, async (req, res) => {
   try {
-    const user_id = req.user?.id || req.body.user_id;
+    const user_id = req.user.id;
     const { amount_usd } = req.body || {};
-    if (!user_id || !amount_usd) return res.status(400).json({ error: "missing_params" });
+    if (!amount_usd) return res.status(400).json({ error: "missing_params" });
 
     const token = await paypalToken();
     const base = process.env.PAYPAL_API_BASE || "https://api-m.paypal.com";
@@ -399,6 +406,9 @@ app.post("/api/paypal/deposit/create", authOptional, async (req, res) => {
       payload,
       { headers: { Authorization: "Bearer " + token }, timeout: 20000 }
     );
+    // store who created order (optional)
+    await db.run("INSERT INTO ledger (user_id, type, amount, meta) VALUES (?,?,?,?)",
+      user_id, "deposit_create", 0, JSON.stringify({ order_id: data?.id }));
     res.json(data);
   } catch (e) {
     console.error("PayPal create_order_failed:", e?.response?.data || e.message);
@@ -406,11 +416,11 @@ app.post("/api/paypal/deposit/create", authOptional, async (req, res) => {
   }
 });
 
-app.post("/api/paypal/deposit/capture", authOptional, async (req, res) => {
+app.post("/api/paypal/deposit/capture", authRequired, async (req, res) => {
   try {
-    const user_id = req.user?.id || req.body.user_id;
+    const user_id = req.user.id;
     const { order_id } = req.body || {};
-    if (!user_id || !order_id) return res.status(400).json({ error: "missing_params" });
+    if (!order_id) return res.status(400).json({ error: "missing_params" });
 
     const token = await paypalToken();
     const base = process.env.PAYPAL_API_BASE || "https://api-m.paypal.com";
@@ -515,7 +525,7 @@ app.get("/api/postback/cpx", async (req, res) => {
 /* =========================
    ADGEM (server postback)
 ========================= */
-// AdGem will call: GET /api/postback/adgem?key=SECRET&user_id=[user_id]&payout=[payout]&offer_id=[offer_id]&offer_name=[offer_name]&transaction_id=[transaction_id]
+// AdGem calls: GET /api/postback/adgem?key=SECRET&user_id=&payout=&offer_id=&offer_name=&transaction_id=
 app.get("/api/postback/adgem", async (req, res) => {
   try {
     const {
@@ -525,10 +535,9 @@ app.get("/api/postback/adgem", async (req, res) => {
       offer_id,
       offer_name,
       transaction_id,
-      trans_id // just in case they use trans_id
+      trans_id
     } = req.query;
 
-    // verify shared secret
     if (!process.env.SURVEY_ADGEM_SECRET) return res.status(500).send("no secret");
     if (key !== process.env.SURVEY_ADGEM_SECRET) return res.status(403).send("bad key");
 
@@ -536,18 +545,13 @@ app.get("/api/postback/adgem", async (req, res) => {
     const uid = String(user_id || "");
     const usd = Number(payout || 0);
 
-    // idempotency: only first insert credits
     const result = await db.run(
       "INSERT OR IGNORE INTO survey_events (provider, trans_id, user_id, payout, raw) VALUES (?,?,?,?,?)",
       "adgem", tx, uid, usd, JSON.stringify(req.query)
     );
 
-    if (result.changes === 0) {
-      // already processed
-      return res.status(200).send("DUPLICATE");
-    }
+    if (result.changes === 0) return res.status(200).send("DUPLICATE");
 
-    // credit based on treatment
     const as = classifyProvider("ADGEM");
     const meta = { provider: "adgem", trans_id: tx, offer_id, offer_name };
     if (as === "SURVEY") await creditSurveyUSD(uid, usd, meta);
@@ -561,7 +565,7 @@ app.get("/api/postback/adgem", async (req, res) => {
 });
 
 /* =========================
-   OTHER PROVIDER HOOKS (simple)
+   OTHER PROVIDER HOOKS (BitLabs)
 ========================= */
 app.get("/webhooks/bitlabs", async (req, res) => {
   try {
@@ -581,12 +585,10 @@ app.get("/webhooks/bitlabs", async (req, res) => {
 });
 
 /* =========================
-   SECURE SURVEY REDIRECTS
+   SECURE SURVEY REDIRECTS (JWT)
 ========================= */
-// ✅ BitLabs secure redirect (no token exposed on client)
-app.get("/surveys/bitlabs", authOptional, (req, res) => {
-  const uid = req.user?.id || req.query.user_id;
-  if (!uid) return res.status(400).send("missing user");
+app.get("/surveys/bitlabs", authRequired, (req, res) => {
+  const uid = req.user?.id;
   const token = process.env.BITLABS_PUBLISHABLE_TOKEN || "";
   if (!token) return res.status(500).send("missing bitlabs token");
   const url = `https://web.bitlabs.ai/?uid=${encodeURIComponent(uid)}&token=${encodeURIComponent(token)}`;
@@ -594,7 +596,7 @@ app.get("/surveys/bitlabs", authOptional, (req, res) => {
 });
 
 /* =========================
-   META WHATSAPP / YOUTUBE / RADIO / AI QUIZ
+   META WHATSAPP / YOUTUBE / RADIO / AI QUIZ (JWT)
 ========================= */
 app.get("/webhooks/whatsapp", (req, res) => {
   const mode = req.query["hub.mode"];
@@ -604,7 +606,8 @@ app.get("/webhooks/whatsapp", (req, res) => {
   res.sendStatus(403);
 });
 app.post("/webhooks/whatsapp", async (_req, res) => { res.sendStatus(200); });
-app.post("/api/whatsapp/send", async (req, res) => {
+
+app.post("/api/whatsapp/send", authRequired, async (req, res) => {
   try {
     const token = process.env.META_ACCESS_TOKEN;
     const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
@@ -619,7 +622,7 @@ app.post("/api/whatsapp/send", async (req, res) => {
   } catch (e) { console.error("WA send error:", e?.response?.data || e.message); res.status(500).json({ error: "whatsapp_send_failed" }); }
 });
 
-app.get("/api/youtube/videos", async (_req, res) => {
+app.get("/api/youtube/videos", authRequired, async (_req, res) => {
   try {
     const key = process.env.YOUTUBE_API_KEY, channelId = process.env.YOUTUBE_CHANNEL_ID;
     if (!key || !channelId) return res.json({ items: [] });
@@ -636,7 +639,7 @@ const RADIO_HOSTS = [
   "https://nl1.api.radio-browser.info",
   "https://at1.api.radio-browser.info",
 ];
-app.get("/api/radio/search", async (req, res) => {
+app.get("/api/radio/search", authRequired, async (req, res) => {
   const q = String(req.query.q || "").trim();
   if (!q) return res.json({ items: [] });
   for (const base of RADIO_HOSTS) {
@@ -658,7 +661,7 @@ app.get("/api/radio/search", async (req, res) => {
   res.json({ items: [] });
 });
 
-app.post("/api/ai/quiz", async (req, res) => {
+app.post("/api/ai/quiz", authRequired, async (req, res) => {
   const topic = (req.body.topic || "general").slice(0,80);
   const n = Math.min(Number(req.body.n || 5), 10);
   const key = process.env.OPENAI_API_KEY;
@@ -693,11 +696,10 @@ app.post("/api/ai/quiz", async (req, res) => {
 /* =========================
    Admin Tools / Diagnostics (secured)
 ========================= */
-// Env snapshot (no secrets)
 app.get("/health/env", (_req, res) => {
   res.json({
     paypal_client_id_present: !!process.env.PAYPAL_CLIENT_ID,
-    paypal_secret_present: !!process.env.PAYPAL_CLIENT_SECRET, // boolean only
+    paypal_secret_present: !!process.env.PAYPAL_CLIENT_SECRET,
     paypal_api_base: process.env.PAYPAL_API_BASE,
     cpx_secret_present: !!process.env.CPX_POSTBACK_SECRET,
     cpx_alg: process.env.CPX_HASH_ALG || "sha1",
@@ -706,7 +708,6 @@ app.get("/health/env", (_req, res) => {
   });
 });
 
-// Compute CPX hash for a trans_id (requires ADMIN_SECRET)
 app.get("/api/tools/hash/cpx", (req, res) => {
   if (!requireAdmin(req, res)) return;
   const trans_id = String(req.query.trans_id || "");
@@ -721,7 +722,7 @@ app.get("/api/tools/hash/cpx", (req, res) => {
 ========================= */
 app.get("/health", (_req, res) => res.send("ok"));
 app.get("/", (_req, res) => res.sendFile(path.join(__dirname, "../frontend/index.html")));
-app.get("/admin.html", (_req, res) => res.sendFile(path.join(__dirname, "../frontend/admin.html"))); // admin test UI
+app.get("/admin.html", (_req, res) => res.sendFile(path.join(__dirname, "../frontend/admin.html")));
 
 const PORT = Number(process.env.PORT || 8081);
 initDb().then(() =>
