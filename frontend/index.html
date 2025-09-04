@@ -18,6 +18,7 @@
   <meta name="twitter:title" content="EngageHubCoin"/>
   <meta name="twitter:description" content="Surveys, social connectors, wallet, and tools in one fast, installable web app."/>
   <meta name="twitter:image" content="https://engagehubcoin.onrender.com/assets/social-card.png"/>
+
   <link rel="manifest" href="/manifest.webmanifest"/>
   <meta name="theme-color" content="#0b1020"/>
 
@@ -172,6 +173,11 @@
       body.nav-open aside.sidebar{ transform: translateX(0); pointer-events: auto; }
       .hamburger{display:inline-flex}
     }
+    /* Locked card */
+    .locked{
+      border:1px dashed #334; background:linear-gradient(180deg,#0b1230aa,#0a1326aa);
+      padding:12px; border-radius:12px; margin:10px 0; color:#9fb0d0
+    }
   </style>
 </head>
 <body>
@@ -237,26 +243,24 @@
     <!-- DASHBOARD -->
     <section id="dashboard" class="section active">
       <div class="grid">
-        <!-- Auth -->
+        <!-- Access -->
         <div class="card span-12">
-          <h3>Login / Register</h3>
+          <h3>Access</h3>
           <div class="row">
-            <input id="auth_email" placeholder="email"/>
-            <input id="auth_pass" type="password" placeholder="password"/>
-            <button class="btn glow" onclick="register()">Register</button>
-            <button class="btn glow" onclick="login()">Login</button>
+            <button class="btn glow" onclick="loginGuest()">Login as Guest</button>
             <button class="btn ghost" onclick="logout()">Logout</button>
           </div>
           <div class="muted" id="auth_msg"></div>
+          <div class="locked" id="lock_hint" style="display:none; margin-top:10px">
+            You’re currently a guest. Click <b>Login as Guest</b> to unlock Wallet, Surveys, Messaging and more.
+          </div>
         </div>
 
         <!-- Quick Wallet -->
         <div class="card span-4">
           <h3>Available to withdraw</h3>
           <div id="avail" class="big">—</div>
-          <div class="row" style="margin-top:8px">
-            <div class="muted">Login to see your balance.</div>
-          </div>
+          <div class="muted">Login first to see your balance.</div>
         </div>
 
         <!-- Quick WhatsApp -->
@@ -283,9 +287,6 @@
         <div class="card span-6">
           <h3>Balance</h3>
           <div id="avail2" class="big">—</div>
-          <div class="row" style="margin-top:8px">
-            <button class="btn primary" onclick="loadWallet(true)">Refresh</button>
-          </div>
         </div>
 
         <div class="card span-6">
@@ -409,10 +410,8 @@
         <div class="card span-6">
           <h3>Account</h3>
           <div class="row">
-            <input id="set_email" placeholder="email for password reset"/>
-          </div>
-          <div class="row">
-            <button class="btn glow" onclick="forgot()">Send Reset Link</button>
+            <button class="btn glow" onclick="loginGuest()">Login as Guest</button>
+            <button class="btn ghost" onclick="logout()">Logout</button>
           </div>
           <div class="muted" id="set_msg"></div>
         </div>
@@ -436,6 +435,19 @@ try{
 }catch(e){}
 </script>
 
+<!-- ===== Auth bootstrap (MUST be first before other scripts use it) ===== -->
+<script>
+let AUTH = { token: localStorage.getItem('jwt') || null };
+function isLoggedIn(){ return !!AUTH.token; }
+function authHeaders(base = {}) { return AUTH.token ? { ...base, Authorization: 'Bearer ' + AUTH.token } : base; }
+function setAuthStatus(){
+  const t = AUTH.token ? 'logged in' : 'guest';
+  const el1=document.getElementById('auth_status'); if(el1) el1.textContent=t;
+  const el2=document.getElementById('kpi_auth'); if(el2) el2.textContent = t === 'guest' ? 'Guest' : 'Member';
+  const hint=document.getElementById('lock_hint'); if(hint) hint.style.display = isLoggedIn()? 'none' : 'block';
+}
+</script>
+
 <script>
 /* ===== SPA Navigation ===== */
 const sections=[...document.querySelectorAll('.section')];
@@ -443,20 +455,31 @@ const links=[...document.querySelectorAll('.nav a')];
 const hamburger = document.getElementById('hamburger');
 const overlay = document.getElementById('overlay');
 
-function openSection(id){
-  // gate: if locked section and not logged in, bounce to dashboard
-  if (!isLoggedIn() && !PUBLIC_SECTIONS.has(id)) {
-    toast('Please log in to access this section.');
-    id = 'dashboard';
+function guard(sectionId){
+  if (sectionId==='dashboard') return true;
+  if (!isLoggedIn()){
+    // bounce back and show hint
+    document.getElementById('auth_msg').textContent = 'Please login as guest to access this section.';
+    openSection('dashboard');
+    return false;
   }
+  return true;
+}
+
+function openSection(id){
+  if (!guard(id)) return;
   sections.forEach(s=>s.classList.toggle('active', s.id===id));
   links.forEach(a=>a.classList.toggle('active', a.dataset.section===id));
-  if(id==='wallet'){ ensurePayPalButtons(); loadWallet(true); }
+  if(id==='wallet'){ ensurePayPalButtons(); }
   if(id==='media'){ loadYouTubeFull(); }
   history.replaceState && history.replaceState(null, '', '#'+id);
 }
+
 window.addEventListener('hashchange',()=>openSection((location.hash||'#dashboard').slice(1)));
-openSection((location.hash||'#dashboard').slice(1));
+window.addEventListener('DOMContentLoaded', ()=>{
+  setAuthStatus();
+  openSection((location.hash||'#dashboard').slice(1));
+});
 
 /* Mobile menu toggle + close-on-click */
 hamburger.addEventListener('click', ()=> document.body.classList.toggle('nav-open'));
@@ -467,92 +490,48 @@ links.forEach(a => a.addEventListener('click', (e) => {
   openSection(a.dataset.section);
 }));
 
-/* ===== Auth state & gating ===== */
-let AUTH = { token: localStorage.getItem('jwt') || null };
-const PUBLIC_SECTIONS = new Set(["dashboard"]); // only Dashboard is public
-function isLoggedIn(){ return !!AUTH.token; }
-function authHeaders(base = {}) { return AUTH.token ? { ...base, Authorization: 'Bearer ' + AUTH.token } : base; }
-function setAuthStatus(){
-  const t = isLoggedIn() ? 'logged in' : 'guest';
-  const el1=document.getElementById('auth_status'); if(el1) el1.textContent=t;
-  const el2=document.getElementById('kpi_auth'); if(el2) el2.textContent = isLoggedIn() ? 'Member' : 'Guest';
-  gateUI();
-}
-function gateUI(){
-  // disable locked nav items when logged out
-  document.querySelectorAll('.nav a').forEach(a=>{
-    const locked = !PUBLIC_SECTIONS.has(a.dataset.section);
-    if(!isLoggedIn() && locked){
-      a.style.pointerEvents='none'; a.style.opacity=.45;
-    }else{
-      a.style.pointerEvents=''; a.style.opacity=1;
-    }
-  });
-  // if currently on a locked section as guest, go home
-  const cur = (location.hash||'#dashboard').slice(1);
-  if(!isLoggedIn() && !PUBLIC_SECTIONS.has(cur)){ location.hash = '#dashboard'; }
-}
-setAuthStatus();
-
-/* Tiny toast helper */
-function toast(msg){
+/* ===== Login as Guest (JWT) ===== */
+async function loginGuest(){
   try{
-    const t=document.createElement('div');
-    t.textContent=msg;
-    Object.assign(t.style,{position:'fixed',left:'50%',bottom:'22px',transform:'translateX(-50%)',background:'#0b1430',border:'1px solid #2a3757',padding:'10px 14px',borderRadius:'12px',zIndex:999,color:'#e8eef7',boxShadow:'0 10px 30px rgba(0,0,0,.35)'});
-    document.body.appendChild(t); setTimeout(()=>t.remove(),2200);
-  }catch(e){}
+    const r = await fetch('/api/auth/guest', { method:'POST' });
+    const j = await r.json();
+    if(j.token){
+      AUTH.token = j.token;
+      localStorage.setItem('jwt', j.token);
+      document.getElementById('auth_msg').textContent='Logged in as guest.';
+      setAuthStatus();
+      // refresh to let all widgets re-init with auth
+      location.reload();
+    }else{
+      document.getElementById('auth_msg').textContent='Guest login failed.';
+    }
+  }catch(e){
+    document.getElementById('auth_msg').textContent='Guest login error.';
+  }
 }
 
-async function register(){
-  const email = document.getElementById('auth_email').value.trim();
-  const password = document.getElementById('auth_pass').value;
-  if(!email || !password){ document.getElementById('auth_msg').textContent='Enter email and password.'; return; }
-  const r = await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
-  const j = await r.json();
-  if(j.token){ AUTH.token=j.token; localStorage.setItem('jwt', j.token); document.getElementById('auth_msg').textContent='Registered & logged in.'; setAuthStatus(); loadWallet(); }
-  else document.getElementById('auth_msg').textContent = j.error||'failed';
-}
-async function login(){
-  const email = document.getElementById('auth_email').value.trim();
-  const password = document.getElementById('auth_pass').value;
-  if(!email || !password){ document.getElementById('auth_msg').textContent='Enter email and password.'; return; }
-  const r = await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
-  const j = await r.json();
-  if(j.token){ AUTH.token=j.token; localStorage.setItem('jwt', j.token); document.getElementById('auth_msg').textContent='Logged in.'; setAuthStatus(); loadWallet(); }
-  else document.getElementById('auth_msg').textContent = j.error||'failed';
-}
 function logout(){
-  AUTH.token=null; localStorage.removeItem('jwt');
+  AUTH.token=null;
+  localStorage.removeItem('jwt');
   document.getElementById('auth_msg').textContent='Logged out.';
   setAuthStatus();
-  // clear gated content UI
-  document.getElementById('avail').textContent='—';
-  document.getElementById('avail2').textContent='—';
-  document.getElementById('kpi_avail').textContent='—';
-  document.getElementById('survey_frame').src='';
-  history.replaceState && history.replaceState(null,'','#dashboard');
   openSection('dashboard');
 }
 
-/* ===== Wallet (AUTH REQUIRED) ===== */
+/* ===== Wallet ===== */
 async function loadWallet(fromWalletTab=false){
-  if(!isLoggedIn()){ toast('Please log in to view wallet'); return; }
   try{
+    if (!isLoggedIn()) return;
     const r = await fetch('/api/wallet', { headers: authHeaders() });
-    if(!r.ok){ throw new Error('wallet unauthorized'); }
-    const j = await r.json();
-    const f=n=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
+    if (!r.ok) return;
+    const j = await r.json(); const f=n=> (typeof n==='number'? n.toFixed(2) : Number(n||0).toFixed(2));
     (fromWalletTab?document.getElementById('avail2'):document.getElementById('avail')).textContent='$ '+f(j.available_to_withdraw_usd);
     const k=document.getElementById('kpi_avail'); if(k) k.textContent='$ '+f(j.available_to_withdraw_usd);
     if(fromWalletTab) document.getElementById('avail').textContent='$ '+f(j.available_to_withdraw_usd);
-  }catch(e){
-    console.warn('wallet error', e);
-    (fromWalletTab?document.getElementById('avail2'):document.getElementById('avail')).textContent='—';
-  }
+  }catch(e){ /* ignore */ }
 }
 async function reqWithdraw(){
-  if(!isLoggedIn()){ toast('Please log in'); return; }
+  if (!isLoggedIn()){ document.getElementById('wout').textContent='Login first.'; return; }
   const email=document.getElementById('w_email').value.trim();
   const amount_usd=Number(document.getElementById('w_amount').value||0);
   if(!email||!amount_usd){document.getElementById('wout').textContent='Enter email and amount.';return;}
@@ -561,7 +540,7 @@ async function reqWithdraw(){
   document.getElementById('wout').textContent=j.ok?'Request sent ✅':'Error: '+(j.error||'failed');
 }
 
-/* ===== PayPal (lazy load, AUTH REQUIRED) ===== */
+/* ===== PayPal (lazy load) ===== */
 let paypalLoaded=false;
 async function ensurePayPalButtons(){
   if(paypalLoaded || !isLoggedIn()) return;
@@ -585,12 +564,16 @@ async function ensurePayPalButtons(){
       }).render('#paypal-buttons');
     };
     document.head.appendChild(s); paypalLoaded=true;
-  } catch(e){ console.warn('paypal init error', e); }
+  } catch(e){ /* ignore */ }
 }
 
-/* ===== WhatsApp (AUTH REQUIRED) ===== */
+/* ===== WhatsApp ===== */
 async function sendWhatsApp(useSecondary=false){
-  if(!isLoggedIn()){ toast('Please log in to send WhatsApp messages'); return; }
+  if (!isLoggedIn()){
+    const out = document.getElementById(useSecondary?'wa_out2':'wa_out');
+    out.textContent = 'Login first.';
+    return;
+  }
   const to = document.getElementById(useSecondary?'wa_to2':'wa_to').value.trim();
   const text = document.getElementById(useSecondary?'wa_text2':'wa_text').value.trim();
   const out = document.getElementById(useSecondary?'wa_out2':'wa_out');
@@ -599,7 +582,7 @@ async function sendWhatsApp(useSecondary=false){
   const j = await r.json(); out.textContent = j.ok ? 'Message sent ✅' : ('Error: ' + (j.error||'failed'));
 }
 
-/* ===== Surveys ===== */
+/* ===== Surveys (BitLabs via server redirect) ===== */
 const SURVEY = {
   cpx:    (uid) => `https://offers.cpx-research.com/index.php?app_id=YOUR_CPX_APP_ID&ext_user_id=${encodeURIComponent(uid)}`,
   adgem:  (uid) => `https://wall.adgem.com/wall/api?appid=YOUR_ADGEM_APP_ID&playerid=${encodeURIComponent(uid)}`,
@@ -610,8 +593,7 @@ const SURVEY = {
   kiwiwall:(uid)=> `https://www.kiwiwall.com/wall/YOUR_SITE_ID/${encodeURIComponent(uid)}`,
   offerdaddy:(uid)=> `https://offerdaddy.com/wall/YOUR_SITE_ID/${encodeURIComponent(uid)}`,
   wannads:(uid)=> `https://wall.wannads.com/wall?apiKey=YOUR_WANNADS_PUBLISHABLE_KEY&userId=${encodeURIComponent(uid)}`,
-  // Secure BitLabs via server (no token in client). Server reads JWT.
-  bitlabs:(_uid) => `/surveys/bitlabs`
+  bitlabs:(_uid)=> `/surveys/bitlabs` // JWT-based on server
 };
 const SURVEY_LIST = [
   ["cpx","CPX"],["bitlabs","BitLabs"],["adgem","AdGem"],["tapjoy","Tapjoy"],
@@ -623,8 +605,8 @@ const SURVEY_LIST = [
   pills.innerHTML = SURVEY_LIST.map(([k,label]) => `<button class="pill" data-k="${k}" onclick="openSurvey('${k}', this)">${label}</button>`).join('');
 })();
 function openSurvey(key, el){
-  if(!isLoggedIn()){ toast('Please log in to open surveys'); return; }
-  const uid = 'jwt'; // server trusts JWT for identity
+  if (!isLoggedIn()){ alert('Login first.'); return; }
+  const uid = 'jwt';
   const urlBuilder = SURVEY[key];
   if(!urlBuilder){ alert('Provider not configured'); return; }
   document.querySelectorAll('#survey_pills .pill').forEach(p=>p.classList.remove('active'));
@@ -632,13 +614,11 @@ function openSurvey(key, el){
   document.getElementById('survey_frame').src = urlBuilder(uid);
 }
 
-/* ===== YouTube (AUTH REQUIRED) ===== */
+/* ===== YouTube ===== */
 async function loadYouTubeFull(){
-  if(!isLoggedIn()) return;
   try{
     const grid=document.getElementById('yt'); if(!grid) return;
-    const res=await fetch('/api/youtube/videos', { headers: authHeaders() }); 
-    const data=await res.json();
+    const res=await fetch('/api/youtube/videos'); const data=await res.json();
     const items=data.items||[];
     grid.innerHTML = items.map(i=>{
       const id = i.id.videoId || i.id.playlistId || i.id.channelId || '';
@@ -651,28 +631,28 @@ async function loadYouTubeFull(){
           <div class="yt-title">${title}</div>
         </a>`;
     }).join('');
-    // Also fill dashboard "Latest Video"
-    const spot=document.getElementById('yt_one');
-    if(spot){
-      const v=items[0];
-      if(!v){ spot.innerHTML='<div class="muted">none</div>'; return;}
-      const id = v.id.videoId || v.id.playlistId || v.id.channelId || '';
-      const sn = v.snippet||{}; const thumb = sn.thumbnails?.medium?.url || ''; const title=sn.title||'';
-      const url = id ? `https://www.youtube.com/watch?v=${id}` : '#';
-      spot.innerHTML = `<a class="yt-card" href="${url}" target="_blank" rel="noopener">
-        <img class="yt-thumb" src="${thumb}" alt=""><div class="yt-title">${title}</div></a>`;
-    }
-  }catch(e){ console.warn('youtube error', e); }
+  }catch(e){ /* ignore */ }
 }
+(async ()=>{ // dashboard single video
+  try{
+    const spot=document.getElementById('yt_one'); if(!spot) return;
+    const res=await fetch('/api/youtube/videos'); const data=await res.json();
+    const v=(data.items||[])[0]; if(!v){ spot.innerHTML='<div class="muted">none</div>'; return;}
+    const id = v.id.videoId || v.id.playlistId || v.id.channelId || '';
+    const sn = v.snippet||{}; const thumb = sn.thumbnails?.medium?.url || ''; const title=sn.title||'';
+    const url = id ? `https://www.youtube.com/watch?v=${id}` : '#';
+    spot.innerHTML = `<a class="yt-card" href="${url}" target="_blank" rel="noopener">
+      <img class="yt-thumb" src="${thumb}" alt=""><div class="yt-title">${title}</div></a>`;
+  }catch(e){ /* ignore */ }
+})();
 
-/* ===== Radio (AUTH REQUIRED) ===== */
+/* ===== Radio ===== */
 async function searchRadio(){
-  if(!isLoggedIn()){ toast('Please log in to search radio'); return; }
   const q = document.getElementById('radio_q').value.trim() || 'kenya';
   const out = document.getElementById('radio_results');
   out.innerHTML = 'Searching...';
   try{
-    const r = await fetch('/api/radio/search?q='+encodeURIComponent(q), { headers: authHeaders() });
+    const r = await fetch('/api/radio/search?q='+encodeURIComponent(q));
     const j = await r.json();
     if(!j.items || !j.items.length){ out.innerHTML = '<div class="muted">No stations found.</div>'; return; }
     out.innerHTML = j.items.map(s => `
@@ -688,13 +668,13 @@ async function searchRadio(){
   }catch(e){ out.innerHTML = '<div class="muted">Error searching radio.</div>'; }
 }
 
-/* ===== Quiz (AUTH REQUIRED) ===== */
+/* ===== Quiz ===== */
 let quizState = { items:[], i:0, score:0 };
 async function startQuiz(){
-  if(!isLoggedIn()){ toast('Please log in to play the quiz'); return; }
+  if (!isLoggedIn()){ alert('Login first.'); return; }
   const topic = document.getElementById('quiz_topic').value || 'general';
   const n = Number(document.getElementById('quiz_n').value||5);
-  const r = await fetch('/api/ai/quiz',{method:'POST',headers: authHeaders({'Content-Type':'application/json'}),body:JSON.stringify({topic, n})});
+  const r = await fetch('/api/ai/quiz',{method:'POST',headers:{'Content-Type':'application/json'} ,body:JSON.stringify({topic, n})});
   const j = await r.json();
   quizState = { items: j.items||[], i:0, score:0 };
   document.getElementById('quiz_msg').textContent = `Provider: ${j.provider||'local'}`;
@@ -724,6 +704,7 @@ function renderQuiz(){
 /* ===== Mini Game (Reaction Tap) ===== */
 let gTimer=null,gScore=0,gTime=15;
 function gameStart(){
+  if (!isLoggedIn()){ alert('Login first.'); return; }
   gameStop();
   gScore=0; gTime=15; document.getElementById('game_score').textContent=gScore; document.getElementById('game_time').textContent=gTime;
   const area=document.getElementById('game_area'); area.innerHTML='';
@@ -741,24 +722,12 @@ function gameStop(finished=false){
   document.getElementById('game_area').innerHTML='';
 }
 
-/* ===== Settings: reset email ===== */
-async function forgot(){
-  const email=document.getElementById('set_email').value.trim(); const out=document.getElementById('set_msg');
-  if(!email){ out.textContent='Enter an email.'; return; }
-  const r=await fetch('/api/auth/forgot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
-  const j=await r.json(); out.textContent = j.ok ? 'Reset link sent (if account exists).' : 'Error.';
-}
-
 /* ===== PWA + Year ===== */
 if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').catch(()=>{}); }
 document.getElementById('year').textContent = new Date().getFullYear();
 
-/* Initial pulls (safe) */
-if (isLoggedIn()){
-  loadWallet();
-  loadYouTubeFull();
-}
-gateUI();
+/* Initial pulls (after DOM ready, some may no-op if not logged in) */
+document.addEventListener('DOMContentLoaded', () => { loadWallet(); });
 </script>
 </body>
 </html>
